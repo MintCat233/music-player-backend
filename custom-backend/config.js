@@ -37,7 +37,8 @@ module.exports = {
   },
   supabase: {
     url: process.env.SUPABASE_URL,
-    anonKey: process.env.SUPABASE_ANON_KEY,
+    publishableKey:
+      process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY,
   },
   demoLogin: {
     enabled: process.env.APP_ENABLE_DEMO_LOGIN === 'true',

@@ -1,11 +1,11 @@
 const { createClient } = require('@supabase/supabase-js')
 
 function createSupabaseAuthClient(config) {
-  if (!config.supabase.url || !config.supabase.anonKey) {
+  if (!config.supabase.url || !config.supabase.publishableKey) {
     return null
   }
 
-  return createClient(config.supabase.url, config.supabase.anonKey, {
+  return createClient(config.supabase.url, config.supabase.publishableKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,

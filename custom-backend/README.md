@@ -29,7 +29,7 @@ API_AUTH_JWT_ISSUER=app-backend
 API_AUTH_JWT_AUDIENCE=ncm-api
 APP_ENABLE_DEMO_LOGIN=false
 SUPABASE_URL=https://your-project-ref.supabase.co
-SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 ```
 
 启动你的业务后端：
