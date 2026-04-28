@@ -1,8 +1,6 @@
 services:
   ncm-api:
-    build:
-      context: .
-    image: api-enhanced:latest
+    image: ${APP_IMAGE:-ghcr.io/mintcat233/api-enhanced:latest}
     container_name: api-enhanced-ncm-api
     restart: unless-stopped
     env_file:
@@ -15,7 +13,7 @@ services:
       - '3500:3000'
 
   custom-backend:
-    image: api-enhanced:latest
+    image: ${APP_IMAGE:-ghcr.io/mintcat233/api-enhanced:latest}
     container_name: api-enhanced-custom-backend
     restart: unless-stopped
     depends_on:

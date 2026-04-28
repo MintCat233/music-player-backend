@@ -22,11 +22,13 @@
 .github/workflows/deploy.yml
 ```
 
-它会通过 SSH 登录服务器，在服务器上拉取当前仓库，然后执行：
+它会先在 GitHub Actions 的 Ubuntu runner 上构建 Docker 镜像，推送到 GHCR：
 
-```bash
-docker compose up -d --build --remove-orphans
+```text
+ghcr.io/mintcat233/api-enhanced
 ```
+
+然后通过 SSH 登录服务器，写入 `docker-compose.yml` 和 `.env`，执行 `docker compose pull` 与 `docker compose up -d --remove-orphans`。
 
 ## 必填 Secrets
 
@@ -45,6 +47,7 @@ docker compose up -d --build --remove-orphans
 | --- | --- |
 | `DEPLOY_PORT` | SSH 端口，默认 `22` |
 | `DEPLOY_PATH` | 服务器上的部署目录，默认 `$HOME/api-enhanced` |
+| `GHCR_TOKEN` | 如果 GHCR 镜像是 private，用有 packages read 权限的 GitHub token |
 | `APP_DEMO_USER_EMAIL` | 本地演示登录账号 |
 | `APP_DEMO_USER_PASSWORD` | 本地演示登录密码 |
 | `PROXY_URL` | 代理地址 |
@@ -72,7 +75,6 @@ docker compose up -d --build --remove-orphans
 服务器需要提前安装：
 
 ```bash
-git
 docker
 docker compose
 ```
@@ -101,7 +103,8 @@ APP_DEMO_USER_PASSWORD=demo-password
 启动：
 
 ```bash
-docker compose up -d --build
+docker build -t ghcr.io/mintcat233/api-enhanced:latest .
+docker compose up -d
 ```
 
 测试业务后端：
