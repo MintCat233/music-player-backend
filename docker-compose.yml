@@ -1,0 +1,30 @@
+services:
+  ncm-api:
+    build:
+      context: .
+    image: api-enhanced:latest
+    container_name: api-enhanced-ncm-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: 3000
+      HOST: 0.0.0.0
+      API_AUTH_ENABLED: ${API_AUTH_ENABLED:-true}
+    ports:
+      - '3500:3000'
+
+  custom-backend:
+    image: api-enhanced:latest
+    container_name: api-enhanced-custom-backend
+    restart: unless-stopped
+    depends_on:
+      - ncm-api
+    env_file:
+      - .env
+    environment:
+      APP_BACKEND_HOST: 0.0.0.0
+      APP_BACKEND_PORT: 4000
+    command: ['/sbin/tini', '--', 'node', 'custom-backend/index.js']
+    ports:
+      - '3510:4000'

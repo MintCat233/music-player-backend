@@ -4,6 +4,7 @@
 !/public
 !/static
 !/util
+!/custom-backend
 !/app.js
 !/server.js
 !/package.json
@@ -13,3 +14,4 @@
 !/data
 !/.env
 !/pnpm-lock.yaml
+!/docker-compose.yml

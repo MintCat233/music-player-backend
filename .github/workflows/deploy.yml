@@ -1,0 +1,80 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          REPOSITORY: ${{ github.repository }}
+          API_AUTH_JWT_SECRET: ${{ secrets.API_AUTH_JWT_SECRET }}
+          API_AUTH_JWT_ISSUER: ${{ vars.API_AUTH_JWT_ISSUER }}
+          API_AUTH_JWT_AUDIENCE: ${{ vars.API_AUTH_JWT_AUDIENCE }}
+          APP_JWT_EXPIRES_IN_SECONDS: ${{ vars.APP_JWT_EXPIRES_IN_SECONDS }}
+          APP_ENABLE_DEMO_LOGIN: ${{ vars.APP_ENABLE_DEMO_LOGIN }}
+          APP_DEMO_USER_EMAIL: ${{ secrets.APP_DEMO_USER_EMAIL }}
+          APP_DEMO_USER_PASSWORD: ${{ secrets.APP_DEMO_USER_PASSWORD }}
+          CORS_ALLOW_ORIGIN: ${{ vars.CORS_ALLOW_ORIGIN }}
+          ENABLE_PROXY: ${{ vars.ENABLE_PROXY }}
+          PROXY_URL: ${{ secrets.PROXY_URL }}
+          ENABLE_GENERAL_UNBLOCK: ${{ vars.ENABLE_GENERAL_UNBLOCK }}
+          ENABLE_FLAC: ${{ vars.ENABLE_FLAC }}
+          SELECT_MAX_BR: ${{ vars.SELECT_MAX_BR }}
+          FOLLOW_SOURCE_ORDER: ${{ vars.FOLLOW_SOURCE_ORDER }}
+          NETEASE_COOKIE: ${{ secrets.NETEASE_COOKIE }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          envs: DEPLOY_PATH,REPOSITORY,API_AUTH_JWT_SECRET,API_AUTH_JWT_ISSUER,API_AUTH_JWT_AUDIENCE,APP_JWT_EXPIRES_IN_SECONDS,APP_ENABLE_DEMO_LOGIN,APP_DEMO_USER_EMAIL,APP_DEMO_USER_PASSWORD,CORS_ALLOW_ORIGIN,ENABLE_PROXY,PROXY_URL,ENABLE_GENERAL_UNBLOCK,ENABLE_FLAC,SELECT_MAX_BR,FOLLOW_SOURCE_ORDER,NETEASE_COOKIE
+          script_stop: true
+          script: |
+            set -eu
+
+            if [ -z "${DEPLOY_PATH:-}" ]; then
+              DEPLOY_PATH="$HOME/api-enhanced"
+            fi
+
+            if [ ! -d "$DEPLOY_PATH/.git" ]; then
+              mkdir -p "$(dirname "$DEPLOY_PATH")"
+              git clone "https://github.com/$REPOSITORY.git" "$DEPLOY_PATH"
+            fi
+
+            cd "$DEPLOY_PATH"
+            git fetch origin main
+            git reset --hard origin/main
+
+            cat > .env <<EOF
+            API_AUTH_ENABLED=true
+            API_AUTH_JWT_SECRET=${API_AUTH_JWT_SECRET}
+            API_AUTH_JWT_ISSUER=${API_AUTH_JWT_ISSUER:-app-backend}
+            API_AUTH_JWT_AUDIENCE=${API_AUTH_JWT_AUDIENCE:-ncm-api}
+            APP_JWT_EXPIRES_IN_SECONDS=${APP_JWT_EXPIRES_IN_SECONDS:-3600}
+            APP_ENABLE_DEMO_LOGIN=${APP_ENABLE_DEMO_LOGIN:-false}
+            APP_DEMO_USER_EMAIL=${APP_DEMO_USER_EMAIL:-}
+            APP_DEMO_USER_PASSWORD=${APP_DEMO_USER_PASSWORD:-}
+            CORS_ALLOW_ORIGIN=${CORS_ALLOW_ORIGIN:-*}
+            ENABLE_PROXY=${ENABLE_PROXY:-false}
+            PROXY_URL=${PROXY_URL:-}
+            ENABLE_GENERAL_UNBLOCK=${ENABLE_GENERAL_UNBLOCK:-false}
+            ENABLE_FLAC=${ENABLE_FLAC:-true}
+            SELECT_MAX_BR=${SELECT_MAX_BR:-false}
+            FOLLOW_SOURCE_ORDER=${FOLLOW_SOURCE_ORDER:-true}
+            NETEASE_COOKIE=${NETEASE_COOKIE:-}
+            EOF
+
+            docker compose up -d --build --remove-orphans
+            docker image prune -f
