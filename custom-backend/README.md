@@ -14,7 +14,7 @@
 
 ```text
 App / Web
-  -> POST custom-backend /auth/login
+  -> POST custom-backend /auth/signup 或 /auth/login
   <- 拿到 accessToken
   -> 调用音乐 API 时带 Authorization: Bearer <accessToken>
 ```
@@ -27,9 +27,9 @@ App / Web
 API_AUTH_JWT_SECRET=test-secret
 API_AUTH_JWT_ISSUER=app-backend
 API_AUTH_JWT_AUDIENCE=ncm-api
-APP_ENABLE_DEMO_LOGIN=true
-APP_DEMO_USER_EMAIL=demo@example.com
-APP_DEMO_USER_PASSWORD=demo-password
+APP_ENABLE_DEMO_LOGIN=false
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
 启动你的业务后端：
@@ -45,15 +45,78 @@ API_AUTH_ENABLED=true API_AUTH_JWT_SECRET=test-secret API_AUTH_JWT_ISSUER=app-ba
  npm start
 ```
 
-## 登录接口
+## Supabase 设置
+
+在 Supabase Dashboard 里：
+
+```text
+Authentication -> Providers -> Email
+```
+
+打开 Email 登录。可以保留 `Confirm email` 开启：注册后 Supabase 会发送验证邮件，用户完成邮箱验证后，再调用 `/auth/login` 获取 `accessToken`。
+
+## 注册接口
+
+安卓调用：
 
 ```http
-POST http://127.0.0.1:4000/auth/login
+POST http://你的服务器:3510/auth/signup
 Content-Type: application/json
 
 {
-  "email": "demo@example.com",
-  "password": "demo-password"
+  "email": "user@example.com",
+  "password": "12345678"
+}
+```
+
+如果 Supabase 开启了邮箱验证，成功创建用户后返回：
+
+```json
+{
+  "code": 202,
+  "msg": "Email confirmation required",
+  "data": {
+    "email": "user@example.com",
+    "emailConfirmationRequired": true
+  }
+}
+```
+
+安卓此时提示用户去邮箱完成验证，不要访问音乐 API。用户验证邮箱后，再调用 `/auth/login`。
+
+如果 Supabase 关闭邮箱验证，注册接口会直接返回：
+
+```json
+{
+  "code": 201,
+  "data": {
+    "accessToken": "...",
+    "tokenType": "Bearer",
+    "expiresIn": 3600,
+    "user": {
+      "id": "supabase-user-id",
+      "email": "user@example.com"
+    }
+  }
+}
+```
+
+安卓保存 `data.accessToken`。之后调用音乐 API：
+
+```http
+GET http://你的服务器:3500/cloudsearch?keywords=周杰伦&type=1
+Authorization: Bearer <accessToken>
+```
+
+## 登录接口
+
+```http
+POST http://你的服务器:3510/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "12345678"
 }
 ```
 
@@ -67,8 +130,8 @@ Content-Type: application/json
     "tokenType": "Bearer",
     "expiresIn": 3600,
     "user": {
-      "id": "demo-user",
-      "email": "demo@example.com"
+      "id": "supabase-user-id",
+      "email": "user@example.com"
     }
   }
 }
@@ -77,7 +140,7 @@ Content-Type: application/json
 然后调用音乐 API：
 
 ```http
-GET http://localhost:3000/cloudsearch?keywords=周杰伦&type=1
+GET http://你的服务器:3500/cloudsearch?keywords=周杰伦&type=1
 Authorization: Bearer <accessToken>
 ```
 
@@ -90,9 +153,9 @@ Authorization: Bearer <accessToken>
 - 调音乐 API 时，每个请求都加 `Authorization: Bearer <accessToken>`。
 - 网易云 cookie 仍然是网易云 cookie，不要塞进 JWT。它继续按原接口的 `cookie` 参数或 `Cookie` header 传。
 
-真正接入用户系统时，主要替换 `services/users.js`：
+现在 `services/users.js` 已经接入 Supabase。你后续写其他业务接口时，可以按这个模式：
 
-- 现在是演示账号校验。
-- 后续你可以换成数据库查询，比如 MySQL、PostgreSQL、MongoDB。
-- 密码不要明文存储，生产环境用 `bcrypt` 或 `argon2` 存哈希。
-- 登录成功后仍然调用 `signJwt()` 签发 token，音乐 API 不需要知道你的数据库。
+- 路由文件只负责解析参数和返回 JSON。
+- service 文件负责调用 Supabase 或数据库。
+- 成功后如果要让安卓访问音乐 API，就调用 `signJwt()` 返回 `accessToken`。
+- 音乐 API 不直接知道 Supabase，后续你换登录服务也不用改音乐 API。

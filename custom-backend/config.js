@@ -35,6 +35,10 @@ module.exports = {
     audience: process.env.API_AUTH_JWT_AUDIENCE || 'ncm-api',
     expiresInSeconds: getNumberEnv('APP_JWT_EXPIRES_IN_SECONDS', 60 * 60),
   },
+  supabase: {
+    url: process.env.SUPABASE_URL,
+    anonKey: process.env.SUPABASE_ANON_KEY,
+  },
   demoLogin: {
     enabled: process.env.APP_ENABLE_DEMO_LOGIN === 'true',
     email: process.env.APP_DEMO_USER_EMAIL || 'demo@example.com',

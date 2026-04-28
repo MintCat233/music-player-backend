@@ -44,7 +44,7 @@
   "main": "main.js",
   "types": "./interface.d.ts",
   "engines": {
-    "node": ">=12"
+    "node": ">=20"
   },
   "lint-staged": {
     "*.js": [
@@ -68,6 +68,7 @@
   ],
   "dependencies": {
     "@neteasecloudmusicapienhanced/unblockmusic-utils": "^0.2.4",
+    "@supabase/supabase-js": "^2.105.0",
     "axios": "^1.15.0",
     "crypto-js": "^4.2.0",
     "dotenv": "^17.4.2",

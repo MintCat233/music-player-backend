@@ -40,6 +40,8 @@ ghcr.io/mintcat233/api-enhanced
 | `DEPLOY_USER` | Secret | SSH 用户名 |
 | `DEPLOY_SSH_KEY` | Secret | SSH 私钥 |
 | `API_AUTH_JWT_SECRET` | Secret | JWT 强随机密钥，两个服务共用 |
+| `SUPABASE_URL` | Secret | Supabase Project URL |
+| `SUPABASE_ANON_KEY` | Secret | Supabase anon public key |
 
 可选 Secret：
 
@@ -98,6 +100,8 @@ API_AUTH_JWT_AUDIENCE=ncm-api
 APP_ENABLE_DEMO_LOGIN=true
 APP_DEMO_USER_EMAIL=demo@example.com
 APP_DEMO_USER_PASSWORD=demo-password
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
 启动：
