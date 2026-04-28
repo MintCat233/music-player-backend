@@ -10,6 +10,7 @@ const { cookieToJson } = require('./util/index')
 const fileUpload = require('express-fileupload')
 const decode = require('safe-decode-uri-component')
 const logger = require('./util/logger.js')
+const { createAuthMiddleware } = require('./util/auth')
 
 /**
  * The version check result.
@@ -187,7 +188,21 @@ function createConsoleSpinner(message = '启动中') {
  */
 async function constructServer(moduleDefs) {
   const app = express()
-  const { CORS_ALLOW_ORIGIN } = process.env
+  const {
+    API_AUTH_ENABLED,
+    API_AUTH_JWT_AUDIENCE,
+    API_AUTH_JWT_ISSUER,
+    API_AUTH_JWT_SECRET,
+    CORS_ALLOW_ORIGIN,
+  } = process.env
+  const authEnabled = API_AUTH_ENABLED === 'true'
+
+  if (authEnabled && !API_AUTH_JWT_SECRET) {
+    throw new Error(
+      'API_AUTH_JWT_SECRET is required when API_AUTH_ENABLED=true',
+    )
+  }
+
   const allowOrigins = parseCorsAllowOrigins(CORS_ALLOW_ORIGIN)
   app.set('trust proxy', true)
 
@@ -211,13 +226,31 @@ async function constructServer(moduleDefs) {
           ? { 'Access-Control-Allow-Origin': corsAllowOrigin }
           : {}),
         ...(shouldSetVaryHeader ? { Vary: 'Origin' } : {}),
-        'Access-Control-Allow-Headers': 'X-Requested-With,Content-Type',
+        'Access-Control-Allow-Headers':
+          'X-Requested-With,Content-Type,Authorization',
         'Access-Control-Allow-Methods': 'PUT,POST,GET,DELETE,OPTIONS',
         'Content-Type': 'application/json; charset=utf-8',
       })
     }
     req.method === 'OPTIONS' ? res.status(204).end() : next()
   })
+
+  app.get('/health', (_, res) => {
+    res.status(200).send({
+      code: 200,
+      status: 'ok',
+    })
+  })
+
+  if (authEnabled) {
+    app.use(
+      createAuthMiddleware({
+        secret: API_AUTH_JWT_SECRET,
+        issuer: API_AUTH_JWT_ISSUER,
+        audience: API_AUTH_JWT_AUDIENCE,
+      }),
+    )
+  }
 
   /**
    * Cookie Parser
@@ -407,7 +440,7 @@ async function constructServer(moduleDefs) {
  * @returns {Promise<import('express').Express & ExpressExtension>}
  */
 async function serveNcmApi(options) {
-  const port = Number(options.port || process.env.PORT || '3000')
+  const port = Number(options.port ?? process.env.PORT ?? '3000')
   const host = options.host || process.env.HOST || ''
 
   const spinner = createConsoleSpinner('服务启动中')
