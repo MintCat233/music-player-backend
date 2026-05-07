@@ -7,9 +7,9 @@ ENV HUSKY 0
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
+COPY package.json package-lock.json ./
 
-RUN corepack enable && pnpm install --prod --frozen-lockfile --ignore-scripts
+RUN npm ci --omit=dev --ignore-scripts
 
 COPY . ./
 
