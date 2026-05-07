@@ -53,11 +53,49 @@ API_AUTH_ENABLED=true API_AUTH_JWT_SECRET=test-secret API_AUTH_JWT_ISSUER=app-ba
 Authentication -> Providers -> Email
 ```
 
-打开 Email 登录。可以保留 `Confirm email` 开启：注册后 Supabase 会发送验证邮件，用户完成邮箱验证后，再调用 `/auth/login` 获取 `accessToken`。
+打开 Email 登录。
+
+然后到邮件模板里把 Magic Link 模板改成验证码邮件：
+
+```text
+Authentication -> Email Templates -> Magic Link
+```
+
+模板里不要只放 `{{ .ConfirmationURL }}`，要展示 `{{ .Token }}`，例如：
+
+```html
+<h2>你的验证码</h2>
+<p>验证码：{{ .Token }}</p>
+```
+
+Supabase 的 Email OTP 和 Magic Link 共用这套模板；如果模板里还是链接，用户收到的就仍然是验证链接，不是验证码。
 
 ## 注册接口
 
-安卓调用：
+第 1 步：安卓请求发送验证码。
+
+```http
+POST http://你的服务器:3510/auth/signup/code
+Content-Type: application/json
+
+{
+  "email": "user@example.com"
+}
+```
+
+返回：
+
+```json
+{
+  "code": 200,
+  "msg": "Verification code sent",
+  "data": {
+    "email": "user@example.com"
+  }
+}
+```
+
+第 2 步：用户填写验证码和密码，安卓请求完成注册。
 
 ```http
 POST http://你的服务器:3510/auth/signup
@@ -65,26 +103,12 @@ Content-Type: application/json
 
 {
   "email": "user@example.com",
-  "password": "12345678"
+  "password": "12345678",
+  "code": "123456"
 }
 ```
 
-如果 Supabase 开启了邮箱验证，成功创建用户后返回：
-
-```json
-{
-  "code": 202,
-  "msg": "Email confirmation required",
-  "data": {
-    "email": "user@example.com",
-    "emailConfirmationRequired": true
-  }
-}
-```
-
-安卓此时提示用户去邮箱完成验证，不要访问音乐 API。用户验证邮箱后，再调用 `/auth/login`。
-
-如果 Supabase 关闭邮箱验证，注册接口会直接返回：
+成功返回：
 
 ```json
 {

@@ -2,13 +2,22 @@ const express = require('express')
 const { signJwt } = require('../auth/jwt')
 const {
   authenticateDemoUser,
+  completeSignUpWithCode,
   createSupabaseAuthClient,
+  sendSignUpCode,
   signInWithEmail,
-  signUpWithEmail,
 } = require('../services/users')
 
 /**
- * @typedef {Object} AuthRequestBody
+ * @typedef {Object} SignupCodeRequestBody
+ * @property {string} email 用户邮箱。
+ *
+ * @typedef {Object} SignupRequestBody
+ * @property {string} email 用户邮箱。
+ * @property {string} password 用户密码，最少 6 个字符。
+ * @property {string} code 邮箱验证码。
+ *
+ * @typedef {Object} LoginRequestBody
  * @property {string} email 用户邮箱。
  * @property {string} password 用户密码，最少 6 个字符。
  *
@@ -23,34 +32,34 @@ const {
  * @property {AuthUser} user 当前用户信息。
  *
  * @typedef {Object} AuthTokenResponse
- * @property {200|201} code 状态码。登录成功为 200，注册且无需邮箱验证时为 201。
+ * @property {200|201} code 状态码。登录成功为 200，注册成功为 201。
  * @property {AuthTokenData} data
  *
- * @typedef {Object} SignupEmailConfirmationResponse
- * @property {202} code 状态码。表示 Supabase 已发送邮箱验证邮件。
- * @property {string} msg 固定为 "Email confirmation required"。
- * @property {{ email: string, emailConfirmationRequired: true }} data
+ * @typedef {Object} SignupCodeResponse
+ * @property {200} code 状态码。表示 Supabase 已发送邮箱验证码。
+ * @property {string} msg 固定为 "Verification code sent"。
+ * @property {{ email: string }} data
  *
  * @typedef {Object} AuthErrorResponse
  * @property {number} code HTTP 状态码。
  * @property {string} msg 错误信息。
  */
 
-function validateEmailPassword(req, res) {
-  const { email, password } = req.body || {}
+function validateEmail(req, res) {
+  const { email } = req.body || {}
 
-  if (!email || !password) {
+  if (!email) {
     res.status(400).send({
       code: 400,
-      msg: '邮箱或密码不能为空',
+      msg: '邮箱不能为空',
     })
     return null
   }
 
-  if (typeof email !== 'string' || typeof password !== 'string') {
+  if (typeof email !== 'string') {
     res.status(400).send({
       code: 400,
-      msg: '无效的邮箱或密码格式',
+      msg: '无效的邮箱格式',
     })
     return null
   }
@@ -59,6 +68,36 @@ function validateEmailPassword(req, res) {
     res.status(400).send({
       code: 400,
       msg: '无效的邮箱格式',
+    })
+    return null
+  }
+
+  return {
+    email: email.trim().toLowerCase(),
+  }
+}
+
+function validateEmailPassword(req, res) {
+  const emailResult = validateEmail(req, res)
+
+  if (!emailResult) {
+    return null
+  }
+
+  const { password } = req.body || {}
+
+  if (!password) {
+    res.status(400).send({
+      code: 400,
+      msg: '密码不能为空',
+    })
+    return null
+  }
+
+  if (typeof password !== 'string') {
+    res.status(400).send({
+      code: 400,
+      msg: '无效的密码格式',
     })
     return null
   }
@@ -72,8 +111,39 @@ function validateEmailPassword(req, res) {
   }
 
   return {
-    email: email.trim().toLowerCase(),
+    email: emailResult.email,
     password,
+  }
+}
+
+function validateSignup(req, res) {
+  const credentials = validateEmailPassword(req, res)
+
+  if (!credentials) {
+    return null
+  }
+
+  const { code } = req.body || {}
+
+  if (!code) {
+    res.status(400).send({
+      code: 400,
+      msg: '验证码不能为空',
+    })
+    return null
+  }
+
+  if (typeof code !== 'string') {
+    res.status(400).send({
+      code: 400,
+      msg: '无效的验证码格式',
+    })
+    return null
+  }
+
+  return {
+    ...credentials,
+    code: code.trim(),
   }
 }
 
@@ -108,48 +178,60 @@ function createAuthRouter(config) {
   const supabase = createSupabaseAuthClient(config)
 
   /**
-   * POST /auth/signup
+   * POST /auth/signup/code
    *
    * Request body:
-   * @type {AuthRequestBody}
+   * @type {SignupCodeRequestBody}
    *
-   * Success responses:
-   * - 202 {SignupEmailConfirmationResponse} Supabase 开启邮箱验证时返回，安卓应提示用户先去邮箱验证。
-   * - 201 {AuthTokenResponse} Supabase 关闭邮箱验证时返回，安卓可直接保存 accessToken。
+   * Success response:
+   * - 200 {SignupCodeResponse} Supabase 已发送邮箱验证码。
    *
    * Error response:
    * - 400/500 {AuthErrorResponse}
    */
-  router.post('/signup', async (req, res) => {
-    const credentials = validateEmailPassword(req, res)
+  router.post('/signup/code', async (req, res) => {
+    const credentials = validateEmail(req, res)
 
     if (!credentials) {
       return
     }
 
     try {
-      const result = await signUpWithEmail(credentials, supabase)
-      const { emailConfirmationRequired, user } = result
+      const result = await sendSignUpCode(credentials, supabase)
 
-      if (!user) {
-        res.status(500).send({
-          code: 500,
-          msg: 'Supabase did not return a user',
-        })
-        return
-      }
+      res.send({
+        code: 200,
+        msg: 'Verification code sent',
+        data: {
+          email: result.email,
+        },
+      })
+    } catch (error) {
+      sendAuthError(res, error)
+    }
+  })
 
-      if (emailConfirmationRequired) {
-        res.status(202).send({
-          code: 202,
-          msg: 'Email confirmation required',
-          data: {
-            email: user.email,
-            emailConfirmationRequired: true,
-          },
-        })
-        return
-      }
+  /**
+   * POST /auth/signup
+   *
+   * Request body:
+   * @type {SignupRequestBody}
+   *
+   * Success response:
+   * - 201 {AuthTokenResponse} 验证码校验成功并设置密码后返回，安卓可直接保存 accessToken。
+   *
+   * Error response:
+   * - 400/500 {AuthErrorResponse}
+   */
+  router.post('/signup', async (req, res) => {
+    const credentials = validateSignup(req, res)
+
+    if (!credentials) {
+      return
+    }
+
+    try {
+      const user = await completeSignUpWithCode(credentials, supabase)
 
       res.status(201).send({
         code: 201,
@@ -164,7 +246,7 @@ function createAuthRouter(config) {
    * POST /auth/login
    *
    * Request body:
-   * @type {AuthRequestBody}
+   * @type {LoginRequestBody}
    *
    * Success response:
    * - 200 {AuthTokenResponse} 安卓保存 data.accessToken，并用它调用音乐 API。

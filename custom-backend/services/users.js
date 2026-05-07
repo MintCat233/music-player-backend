@@ -33,12 +33,14 @@ function assertSupabaseConfigured(supabase) {
   }
 }
 
-async function signUpWithEmail({ email, password }, supabase) {
+async function sendSignUpCode({ email }, supabase) {
   assertSupabaseConfigured(supabase)
 
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signInWithOtp({
     email,
-    password,
+    options: {
+      shouldCreateUser: true,
+    },
   })
 
   if (error) {
@@ -46,9 +48,44 @@ async function signUpWithEmail({ email, password }, supabase) {
   }
 
   return {
-    user: normalizeSupabaseUser(data.user),
-    emailConfirmationRequired: !data.session,
+    email,
   }
+}
+
+async function completeSignUpWithCode({ email, password, code }, supabase) {
+  assertSupabaseConfigured(supabase)
+
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token: code,
+    type: 'email',
+  })
+
+  if (error) {
+    throw error
+  }
+
+  if (!data.session) {
+    const sessionError = new Error('Invalid or expired verification code')
+    sessionError.status = 400
+    throw sessionError
+  }
+
+  await supabase.auth.setSession({
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+  })
+
+  const { data: updateData, error: updateError } =
+    await supabase.auth.updateUser({
+      password,
+    })
+
+  if (updateError) {
+    throw updateError
+  }
+
+  return normalizeSupabaseUser(updateData.user || data.user)
 }
 
 async function signInWithEmail({ email, password }, supabase) {
@@ -83,7 +120,8 @@ function authenticateDemoUser({ email, password }, demoLogin) {
 
 module.exports = {
   authenticateDemoUser,
+  completeSignUpWithCode,
   createSupabaseAuthClient,
+  sendSignUpCode,
   signInWithEmail,
-  signUpWithEmail,
 }
