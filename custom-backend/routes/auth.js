@@ -1,5 +1,6 @@
 const express = require('express')
 const { signJwt } = require('../auth/jwt')
+const { verifyJwt } = require('../../util/auth')
 const {
   authenticateDemoUser,
   completeSignUpWithCode,
@@ -22,6 +23,9 @@ const {
  * @property {string} email 用户邮箱。
  * @property {string} password 用户密码，最少 6 个字符。
  *
+ * @typedef {Object} RefreshTokenRequestBody
+ * @property {string} refreshToken 登录或注册接口返回的 refreshToken。
+ *
  * @typedef {Object} AuthUser
  * @property {string} id Supabase 用户 ID。
  * @property {string} email 用户邮箱。
@@ -29,8 +33,10 @@ const {
  *
  * @typedef {Object} AuthTokenData
  * @property {string} accessToken 业务后端签发的 JWT，安卓调用音乐 API 时放到 Authorization Bearer。
+ * @property {string} refreshToken 用于向业务后端换取新 accessToken 的 JWT，不要传给音乐 API。
  * @property {"Bearer"} tokenType Token 类型。
  * @property {number} expiresIn accessToken 有效期，单位秒。
+ * @property {number} refreshExpiresIn refreshToken 有效期，单位秒。
  * @property {AuthUser} user 当前用户信息。
  *
  * @typedef {Object} AuthTokenResponse
@@ -194,6 +200,30 @@ function validateEmailPassword(req, res) {
   }
 }
 
+function validateRefreshToken(req, res) {
+  const { refreshToken } = req.body || {}
+
+  if (!refreshToken) {
+    res.status(400).send({
+      code: 400,
+      msg: 'refreshToken不能为空',
+    })
+    return null
+  }
+
+  if (typeof refreshToken !== 'string') {
+    res.status(400).send({
+      code: 400,
+      msg: '无效的refreshToken格式',
+    })
+    return null
+  }
+
+  return {
+    refreshToken: refreshToken.trim(),
+  }
+}
+
 function validateSignup(req, res) {
   const email = validateEmail(req, res)
   if (!email) return null
@@ -218,6 +248,40 @@ function validateSignup(req, res) {
 function createTokenResponse(user, config) {
   const accessToken = signJwt(
     {
+      type: 'access',
+      sub: user.id,
+      email: user.email,
+      username: user.username,
+    },
+    config.jwt,
+  )
+  const refreshToken = signJwt(
+    {
+      type: 'refresh',
+      sub: user.id,
+      email: user.email,
+      username: user.username,
+    },
+    {
+      ...config.jwt,
+      expiresInSeconds: config.jwt.refreshExpiresInSeconds,
+    },
+  )
+
+  return {
+    accessToken,
+    refreshToken,
+    tokenType: 'Bearer',
+    expiresIn: config.jwt.expiresInSeconds,
+    refreshExpiresIn: config.jwt.refreshExpiresInSeconds,
+    user,
+  }
+}
+
+function createAccessTokenResponse(user, config) {
+  const accessToken = signJwt(
+    {
+      type: 'access',
       sub: user.id,
       email: user.email,
       username: user.username,
@@ -353,6 +417,51 @@ function createAuthRouter(config) {
       })
     } catch (error) {
       sendAuthError(res, error, 401)
+    }
+  })
+
+  /**
+   * POST /auth/refresh
+   *
+   * Request body:
+   * @type {RefreshTokenRequestBody}
+   *
+   * Success response:
+   * - 200 {AuthTokenResponse} refreshToken 有效时返回新的 accessToken。
+   *
+   * Error response:
+   * - 400/401 {AuthErrorResponse}
+   */
+  router.post('/refresh', async (req, res) => {
+    const credentials = validateRefreshToken(req, res)
+
+    if (!credentials) {
+      return
+    }
+
+    try {
+      const payload = verifyJwt(credentials.refreshToken, config.jwt)
+
+      if (payload.type !== 'refresh') {
+        throw new Error('invalid token')
+      }
+
+      res.send({
+        code: 200,
+        data: createAccessTokenResponse(
+          {
+            id: payload.sub,
+            email: payload.email,
+            username: payload.username,
+          },
+          config,
+        ),
+      })
+    } catch (_) {
+      res.status(401).send({
+        code: 401,
+        msg: 'Invalid refreshToken',
+      })
     }
   })
 

@@ -109,6 +109,9 @@ function createAuthMiddleware(options) {
 
     try {
       req.auth = verifyJwt(match[1], options)
+      if (req.auth.type && req.auth.type !== 'access') {
+        throw new Error('invalid token')
+      }
       next()
     } catch (_) {
       res.status(401).send({

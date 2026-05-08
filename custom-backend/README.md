@@ -135,7 +135,8 @@ GET http://127.0.0.1:4000/health
 | `API_AUTH_JWT_SECRET` | 是 | 签发和校验业务 JWT 的密钥，生产环境必须换成强随机字符串 |
 | `API_AUTH_JWT_ISSUER` | 否 | JWT issuer，默认 `app-backend` |
 | `API_AUTH_JWT_AUDIENCE` | 否 | JWT audience，默认 `ncm-api`，音乐 API 校验时要一致 |
-| `APP_JWT_EXPIRES_IN_SECONDS` | 否 | token 有效期，默认 3600 秒 |
+| `APP_JWT_EXPIRES_IN_SECONDS` | 否 | accessToken 有效期，默认 3600 秒 |
+| `APP_JWT_REFRESH_EXPIRES_IN_SECONDS` | 否 | refreshToken 有效期，默认 2592000 秒，也就是 30 天 |
 | `APP_BACKEND_PORT` | 否 | 业务后端端口，默认 4000 |
 | `APP_BACKEND_HOST` | 否 | 监听地址，默认 `127.0.0.1` |
 | `SUPABASE_URL` | 注册登录需要 | Supabase 项目 URL |
@@ -152,8 +153,9 @@ GET http://127.0.0.1:4000/health
 App / Web
   -> POST custom-backend /auth/signup/code
   -> POST custom-backend /auth/signup 或 /auth/login
-  <- 拿到 accessToken
+  <- 拿到 accessToken 和 refreshToken
   -> 调用音乐 API 时带 Authorization: Bearer <accessToken>
+  -> accessToken 过期后 POST custom-backend /auth/refresh 换新 accessToken
 ```
 
 也就是说：
@@ -208,8 +210,10 @@ Content-Type: application/json
   "code": 201,
   "data": {
     "accessToken": "...",
+    "refreshToken": "...",
     "tokenType": "Bearer",
     "expiresIn": 3600,
+    "refreshExpiresIn": 2592000,
     "user": {
       "id": "supabase-user-id",
       "email": "user@example.com",
@@ -238,8 +242,10 @@ Content-Type: application/json
   "code": 200,
   "data": {
     "accessToken": "...",
+    "refreshToken": "...",
     "tokenType": "Bearer",
     "expiresIn": 3600,
+    "refreshExpiresIn": 2592000,
     "user": {
       "id": "supabase-user-id",
       "email": "user@example.com"
@@ -260,6 +266,36 @@ Authorization: Bearer <accessToken>
 GET http://127.0.0.1:3000/cloudsearch?keywords=周杰伦&type=1
 Authorization: Bearer <accessToken>
 ```
+
+`accessToken` 过期后，用 `refreshToken` 换一个新的 `accessToken`：
+
+```http
+POST http://127.0.0.1:4000/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "..."
+}
+```
+
+成功返回：
+
+```json
+{
+  "code": 200,
+  "data": {
+    "accessToken": "...",
+    "tokenType": "Bearer",
+    "expiresIn": 3600,
+    "user": {
+      "id": "supabase-user-id",
+      "email": "user@example.com"
+    }
+  }
+}
+```
+
+注意：`refreshToken` 只发给业务后端的 `/auth/refresh`，不要放到音乐 API 的 `Authorization` 里。
 
 ## 获取当前用户
 
@@ -496,6 +532,7 @@ Supabase 的 Email OTP 和 Magic Link 共用这套模板。如果模板里还是
 两者不要混用：
 
 - `accessToken`：你的业务登录态，用来证明“这是你 App 的用户”。
+- `refreshToken`：你的业务刷新凭证，只用来请求 `/auth/refresh` 换新的 `accessToken`。
 - 网易云 `cookie`：网易云账号登录态，用来调用网易云相关接口。
 
 调用音乐 API 时：

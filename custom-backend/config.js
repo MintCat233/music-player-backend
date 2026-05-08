@@ -34,6 +34,10 @@ module.exports = {
     issuer: process.env.API_AUTH_JWT_ISSUER || 'app-backend',
     audience: process.env.API_AUTH_JWT_AUDIENCE || 'ncm-api',
     expiresInSeconds: getNumberEnv('APP_JWT_EXPIRES_IN_SECONDS', 60 * 60),
+    refreshExpiresInSeconds: getNumberEnv(
+      'APP_JWT_REFRESH_EXPIRES_IN_SECONDS',
+      60 * 60 * 24 * 30,
+    ),
   },
   supabase: {
     url: process.env.SUPABASE_URL,
