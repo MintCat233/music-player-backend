@@ -22,6 +22,7 @@ function normalizeSupabaseUser(user) {
   return {
     id: user.id,
     email: user.email,
+    username: user.user_metadata && user.user_metadata.username,
   }
 }
 
@@ -52,7 +53,10 @@ async function sendSignUpCode({ email }, supabase) {
   }
 }
 
-async function completeSignUpWithCode({ email, password, code }, supabase) {
+async function completeSignUpWithCode(
+  { email, password, username, code },
+  supabase,
+) {
   assertSupabaseConfigured(supabase)
 
   const { data, error } = await supabase.auth.verifyOtp({
@@ -79,6 +83,9 @@ async function completeSignUpWithCode({ email, password, code }, supabase) {
   const { data: updateData, error: updateError } =
     await supabase.auth.updateUser({
       password,
+      data: {
+        username,
+      },
     })
 
   if (updateError) {
@@ -115,6 +122,7 @@ function authenticateDemoUser({ email, password }, demoLogin) {
   return {
     id: 'demo-user',
     email,
+    username: 'demo',
   }
 }
 

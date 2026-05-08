@@ -15,6 +15,7 @@ const {
  * @typedef {Object} SignupRequestBody
  * @property {string} email 用户邮箱。
  * @property {string} password 用户密码，最少 6 个字符。
+ * @property {string} username 用户名。
  * @property {string} code 邮箱验证码。
  *
  * @typedef {Object} LoginRequestBody
@@ -24,6 +25,7 @@ const {
  * @typedef {Object} AuthUser
  * @property {string} id Supabase 用户 ID。
  * @property {string} email 用户邮箱。
+ * @property {string=} username 用户名。
  *
  * @typedef {Object} AuthTokenData
  * @property {string} accessToken 业务后端签发的 JWT，安卓调用音乐 API 时放到 Authorization Bearer。
@@ -64,7 +66,9 @@ function validateEmail(req, res) {
     return null
   }
 
-  if (!email.includes('@')) {
+  const formattedEmail = email.trim().toLowerCase()
+
+  if (!formattedEmail || !formattedEmail.includes('@')) {
     res.status(400).send({
       code: 400,
       msg: '无效的邮箱格式',
@@ -73,17 +77,11 @@ function validateEmail(req, res) {
   }
 
   return {
-    email: email.trim().toLowerCase(),
+    email: formattedEmail,
   }
 }
 
-function validateEmailPassword(req, res) {
-  const emailResult = validateEmail(req, res)
-
-  if (!emailResult) {
-    return null
-  }
-
+function validatePassword(req, res) {
   const { password } = req.body || {}
 
   if (!password) {
@@ -111,18 +109,45 @@ function validateEmailPassword(req, res) {
   }
 
   return {
-    email: emailResult.email,
     password,
   }
 }
 
-function validateSignup(req, res) {
-  const credentials = validateEmailPassword(req, res)
+function validateUsername(req, res) {
+  const { username } = req.body || {}
 
-  if (!credentials) {
+  if (!username) {
+    res.status(400).send({
+      code: 400,
+      msg: '用户名不能为空',
+    })
     return null
   }
 
+  if (typeof username !== 'string') {
+    res.status(400).send({
+      code: 400,
+      msg: '无效的用户名格式',
+    })
+    return null
+  }
+
+  const formattedUsername = username.trim()
+
+  if (!formattedUsername) {
+    res.status(400).send({
+      code: 400,
+      msg: '用户名不能为空',
+    })
+    return null
+  }
+
+  return {
+    username: formattedUsername,
+  }
+}
+
+function validateCode(req, res) {
   const { code } = req.body || {}
 
   if (!code) {
@@ -141,9 +166,52 @@ function validateSignup(req, res) {
     return null
   }
 
+  const formattedCode = code.trim()
+
+  if (!formattedCode) {
+    res.status(400).send({
+      code: 400,
+      msg: '验证码不能为空',
+    })
+    return null
+  }
+
   return {
-    ...credentials,
-    code: code.trim(),
+    code: formattedCode,
+  }
+}
+
+function validateEmailPassword(req, res) {
+  const email = validateEmail(req, res)
+  if (!email) return null
+
+  const password = validatePassword(req, res)
+  if (!password) return null
+
+  return {
+    ...email,
+    ...password,
+  }
+}
+
+function validateSignup(req, res) {
+  const email = validateEmail(req, res)
+  if (!email) return null
+
+  const password = validatePassword(req, res)
+  if (!password) return null
+
+  const username = validateUsername(req, res)
+  if (!username) return null
+
+  const code = validateCode(req, res)
+  if (!code) return null
+
+  return {
+    ...email,
+    ...password,
+    ...username,
+    ...code,
   }
 }
 
@@ -152,6 +220,7 @@ function createTokenResponse(user, config) {
     {
       sub: user.id,
       email: user.email,
+      username: user.username,
     },
     config.jwt,
   )

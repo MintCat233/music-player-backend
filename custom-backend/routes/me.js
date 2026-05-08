@@ -11,6 +11,7 @@ function createMeRouter(config) {
       data: {
         id: req.user.sub,
         email: req.user.email,
+        username: req.user.username,
       },
     })
   })
