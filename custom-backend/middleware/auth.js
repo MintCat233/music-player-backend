@@ -1,4 +1,5 @@
 const { verifyJwt } = require('../../util/auth')
+const { sendError } = require('../util/response')
 
 function createAppAuthMiddleware(jwtOptions) {
   return (req, res, next) => {
@@ -6,10 +7,7 @@ function createAppAuthMiddleware(jwtOptions) {
     const match = authorization.match(/^Bearer\s+(.+)$/i)
 
     if (!match) {
-      res.status(401).send({
-        code: 401,
-        msg: 'Unauthorized',
-      })
+      sendError(res, 401, 'Unauthorized')
       return
     }
 
@@ -17,10 +15,7 @@ function createAppAuthMiddleware(jwtOptions) {
       req.user = verifyJwt(match[1], jwtOptions)
       next()
     } catch (_) {
-      res.status(401).send({
-        code: 401,
-        msg: 'Invalid token',
-      })
+      sendError(res, 401, 'Invalid token')
     }
   }
 }

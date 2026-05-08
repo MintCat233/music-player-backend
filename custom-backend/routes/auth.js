@@ -4,10 +4,12 @@ const { verifyJwt } = require('../../util/auth')
 const {
   authenticateDemoUser,
   completeSignUpWithCode,
+  createSupabaseAdminClient,
   createSupabaseAuthClient,
   sendSignUpCode,
   signInWithEmail,
 } = require('../services/users')
+const { sendError, sendSuccess } = require('../util/response')
 
 /**
  * @typedef {Object} SignupCodeRequestBody
@@ -40,7 +42,8 @@ const {
  * @property {AuthUser} user 当前用户信息。
  *
  * @typedef {Object} AuthTokenResponse
- * @property {200|201} code 状态码。登录成功为 200，注册成功为 201。
+ * @property {200} code 状态码。
+ * @property {string} msg 成功信息。
  * @property {AuthTokenData} data
  *
  * @typedef {Object} SignupCodeResponse
@@ -51,34 +54,26 @@ const {
  * @typedef {Object} AuthErrorResponse
  * @property {number} code HTTP 状态码。
  * @property {string} msg 错误信息。
+ * @property {null} data 错误时固定为 null。
  */
 
 function validateEmail(req, res) {
   const { email } = req.body || {}
 
   if (!email) {
-    res.status(400).send({
-      code: 400,
-      msg: '邮箱不能为空',
-    })
+    sendError(res, 400, '邮箱不能为空')
     return null
   }
 
   if (typeof email !== 'string') {
-    res.status(400).send({
-      code: 400,
-      msg: '无效的邮箱格式',
-    })
+    sendError(res, 400, '无效的邮箱格式')
     return null
   }
 
   const formattedEmail = email.trim().toLowerCase()
 
   if (!formattedEmail || !formattedEmail.includes('@')) {
-    res.status(400).send({
-      code: 400,
-      msg: '无效的邮箱格式',
-    })
+    sendError(res, 400, '无效的邮箱格式')
     return null
   }
 
@@ -91,26 +86,17 @@ function validatePassword(req, res) {
   const { password } = req.body || {}
 
   if (!password) {
-    res.status(400).send({
-      code: 400,
-      msg: '密码不能为空',
-    })
+    sendError(res, 400, '密码不能为空')
     return null
   }
 
   if (typeof password !== 'string') {
-    res.status(400).send({
-      code: 400,
-      msg: '无效的密码格式',
-    })
+    sendError(res, 400, '无效的密码格式')
     return null
   }
 
   if (password.length < 6) {
-    res.status(400).send({
-      code: 400,
-      msg: '密码必须在6个字符以上',
-    })
+    sendError(res, 400, '密码必须在6个字符以上')
     return null
   }
 
@@ -123,28 +109,19 @@ function validateUsername(req, res) {
   const { username } = req.body || {}
 
   if (!username) {
-    res.status(400).send({
-      code: 400,
-      msg: '用户名不能为空',
-    })
+    sendError(res, 400, '用户名不能为空')
     return null
   }
 
   if (typeof username !== 'string') {
-    res.status(400).send({
-      code: 400,
-      msg: '无效的用户名格式',
-    })
+    sendError(res, 400, '无效的用户名格式')
     return null
   }
 
   const formattedUsername = username.trim()
 
   if (!formattedUsername) {
-    res.status(400).send({
-      code: 400,
-      msg: '用户名不能为空',
-    })
+    sendError(res, 400, '用户名不能为空')
     return null
   }
 
@@ -157,28 +134,19 @@ function validateCode(req, res) {
   const { code } = req.body || {}
 
   if (!code) {
-    res.status(400).send({
-      code: 400,
-      msg: '验证码不能为空',
-    })
+    sendError(res, 400, '验证码不能为空')
     return null
   }
 
   if (typeof code !== 'string') {
-    res.status(400).send({
-      code: 400,
-      msg: '无效的验证码格式',
-    })
+    sendError(res, 400, '无效的验证码格式')
     return null
   }
 
   const formattedCode = code.trim()
 
   if (!formattedCode) {
-    res.status(400).send({
-      code: 400,
-      msg: '验证码不能为空',
-    })
+    sendError(res, 400, '验证码不能为空')
     return null
   }
 
@@ -204,18 +172,12 @@ function validateRefreshToken(req, res) {
   const { refreshToken } = req.body || {}
 
   if (!refreshToken) {
-    res.status(400).send({
-      code: 400,
-      msg: 'refreshToken不能为空',
-    })
+    sendError(res, 400, 'refreshToken不能为空')
     return null
   }
 
   if (typeof refreshToken !== 'string') {
-    res.status(400).send({
-      code: 400,
-      msg: '无效的refreshToken格式',
-    })
+    sendError(res, 400, '无效的refreshToken格式')
     return null
   }
 
@@ -300,15 +262,13 @@ function createAccessTokenResponse(user, config) {
 function sendAuthError(res, error, fallbackStatus = 400) {
   const status = error.status || fallbackStatus
 
-  res.status(status).send({
-    code: status,
-    msg: error.message || 'Auth failed',
-  })
+  sendError(res, status, error.message || 'Auth failed')
 }
 
 function createAuthRouter(config) {
   const router = express.Router()
   const supabase = createSupabaseAuthClient(config)
+  const supabaseAdmin = createSupabaseAdminClient(config)
 
   /**
    * POST /auth/signup/code
@@ -332,13 +292,13 @@ function createAuthRouter(config) {
     try {
       const result = await sendSignUpCode(credentials, supabase)
 
-      res.send({
-        code: 200,
-        msg: 'Verification code sent',
-        data: {
+      sendSuccess(
+        res,
+        {
           email: result.email,
         },
-      })
+        'Verification code sent',
+      )
     } catch (error) {
       sendAuthError(res, error)
     }
@@ -351,7 +311,7 @@ function createAuthRouter(config) {
    * @type {SignupRequestBody}
    *
    * Success response:
-   * - 201 {AuthTokenResponse} 验证码校验成功并设置密码后返回，安卓可直接保存 accessToken。
+   * - 200 {AuthTokenResponse} 验证码校验成功并设置密码后返回，安卓可直接保存 accessToken。
    *
    * Error response:
    * - 400/500 {AuthErrorResponse}
@@ -364,12 +324,13 @@ function createAuthRouter(config) {
     }
 
     try {
-      const user = await completeSignUpWithCode(credentials, supabase)
+      const user = await completeSignUpWithCode(
+        credentials,
+        supabase,
+        supabaseAdmin,
+      )
 
-      res.status(201).send({
-        code: 201,
-        data: createTokenResponse(user, config),
-      })
+      sendSuccess(res, createTokenResponse(user, config))
     } catch (error) {
       sendAuthError(res, error)
     }
@@ -398,23 +359,17 @@ function createAuthRouter(config) {
       let user = null
 
       if (supabase) {
-        user = await signInWithEmail(credentials, supabase)
+        user = await signInWithEmail(credentials, supabase, supabaseAdmin)
       } else {
         user = authenticateDemoUser(credentials, config.demoLogin)
       }
 
       if (!user) {
-        res.status(401).send({
-          code: 401,
-          msg: 'Invalid email or password',
-        })
+        sendError(res, 401, 'Invalid email or password')
         return
       }
 
-      res.send({
-        code: 200,
-        data: createTokenResponse(user, config),
-      })
+      sendSuccess(res, createTokenResponse(user, config))
     } catch (error) {
       sendAuthError(res, error, 401)
     }
@@ -446,9 +401,9 @@ function createAuthRouter(config) {
         throw new Error('invalid token')
       }
 
-      res.send({
-        code: 200,
-        data: createAccessTokenResponse(
+      sendSuccess(
+        res,
+        createAccessTokenResponse(
           {
             id: payload.sub,
             email: payload.email,
@@ -456,12 +411,9 @@ function createAuthRouter(config) {
           },
           config,
         ),
-      })
+      )
     } catch (_) {
-      res.status(401).send({
-        code: 401,
-        msg: 'Invalid refreshToken',
-      })
+      sendError(res, 401, 'Invalid refreshToken')
     }
   })
 

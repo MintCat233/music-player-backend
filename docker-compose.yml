@@ -23,6 +23,7 @@ services:
     environment:
       APP_BACKEND_HOST: 0.0.0.0
       APP_BACKEND_PORT: 4000
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
     command: ['/sbin/tini', '--', 'node', 'custom-backend/index.js']
     ports:
       - '3510:4000'

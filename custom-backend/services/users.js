@@ -14,6 +14,20 @@ function createSupabaseAuthClient(config) {
   })
 }
 
+function createSupabaseAdminClient(config) {
+  if (!config.supabase.url || !config.supabase.serviceRoleKey) {
+    return null
+  }
+
+  return createClient(config.supabase.url, config.supabase.serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  })
+}
+
 function normalizeSupabaseUser(user) {
   if (!user) {
     return null
@@ -56,8 +70,14 @@ async function sendSignUpCode({ email }, supabase) {
 async function completeSignUpWithCode(
   { email, password, username, code },
   supabase,
+  supabaseAdmin,
 ) {
   assertSupabaseConfigured(supabase)
+
+  if (supabaseAdmin) {
+    // TODO: 在这里填注册成功后需要 admin 权限的逻辑。
+    // 例如写入受 RLS 保护的 profile 表、更新 app_metadata 等。
+  }
 
   const { data, error } = await supabase.auth.verifyOtp({
     email,
@@ -92,11 +112,18 @@ async function completeSignUpWithCode(
     throw updateError
   }
 
+
+
   return normalizeSupabaseUser(updateData.user || data.user)
 }
 
-async function signInWithEmail({ email, password }, supabase) {
+async function signInWithEmail({ email, password }, supabase, supabaseAdmin) {
   assertSupabaseConfigured(supabase)
+
+  if (supabaseAdmin) {
+    // TODO: 在这里填登录成功后需要 admin 权限的逻辑。
+    // 例如查询/更新只允许 service role 访问的用户扩展资料。
+  }
 
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -106,6 +133,7 @@ async function signInWithEmail({ email, password }, supabase) {
   if (error) {
     throw error
   }
+
 
   return normalizeSupabaseUser(data.user)
 }
@@ -129,6 +157,7 @@ function authenticateDemoUser({ email, password }, demoLogin) {
 module.exports = {
   authenticateDemoUser,
   completeSignUpWithCode,
+  createSupabaseAdminClient,
   createSupabaseAuthClient,
   sendSignUpCode,
   signInWithEmail,

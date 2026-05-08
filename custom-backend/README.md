@@ -16,7 +16,7 @@
 | `app/api/login/route.ts` 或 `pages/api/login.ts` | `custom-backend/routes/auth.js` |
 | `export async function POST(req)` | `router.post('/login', async (req, res) => {})` |
 | `await req.json()` | `req.body` |
-| `return Response.json(data)` | `res.status(200).send(data)` |
+| `return Response.json(data)` | `sendSuccess(res, data)` |
 | 中间件、helper 函数 | `middleware/`、`services/`、`auth/` |
 
 核心差别是：Next.js 按文件路径自动生成路由，Express 需要你手动注册路由。
@@ -67,11 +67,13 @@ custom-backend/
     auth.js             业务后端自己的登录态校验中间件
   auth/
     jwt.js              签发业务 JWT
+  util/
+    response.js         统一返回 code + msg + data
 ```
 
 建议保持这个分层：
 
-- `routes/`：只做参数校验、调用 service、返回 JSON。
+- `routes/`：只做参数校验、调用 service、用 `sendSuccess` / `sendError` 返回 JSON。
 - `services/`：写业务逻辑，例如调用 Supabase、数据库、第三方接口。
 - `middleware/`：写通用拦截逻辑，例如校验登录态、权限、限流。
 - `auth/`：写和 token、密码、认证相关的底层工具。
@@ -98,6 +100,7 @@ APP_BACKEND_HOST=127.0.0.1
 APP_ENABLE_DEMO_LOGIN=false
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+SUPABASE_SERVICE_ROLE_KEY=service_role_xxx
 ```
 
 启动你的业务后端：
@@ -123,8 +126,10 @@ GET http://127.0.0.1:4000/health
 ```json
 {
   "code": 200,
-  "status": "ok",
-  "service": "custom-backend"
+  "msg": "success",
+  "data": {
+    "service": "custom-backend"
+  }
 }
 ```
 
@@ -141,6 +146,7 @@ GET http://127.0.0.1:4000/health
 | `APP_BACKEND_HOST` | 否 | 监听地址，默认 `127.0.0.1` |
 | `SUPABASE_URL` | 注册登录需要 | Supabase 项目 URL |
 | `SUPABASE_PUBLISHABLE_KEY` | 注册登录需要 | Supabase publishable key，也兼容 `SUPABASE_ANON_KEY` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Admin 权限逻辑需要 | Supabase service role key，只能放服务端 |
 | `APP_ENABLE_DEMO_LOGIN` | 否 | 没有 Supabase 时是否启用演示登录 |
 | `APP_DEMO_USER_EMAIL` | 否 | 演示登录邮箱 |
 | `APP_DEMO_USER_PASSWORD` | 否 | 演示登录密码 |
@@ -207,7 +213,8 @@ Content-Type: application/json
 
 ```json
 {
-  "code": 201,
+  "code": 200,
+  "msg": "success",
   "data": {
     "accessToken": "...",
     "refreshToken": "...",
@@ -240,6 +247,7 @@ Content-Type: application/json
 ```json
 {
   "code": 200,
+  "msg": "success",
   "data": {
     "accessToken": "...",
     "refreshToken": "...",
@@ -249,6 +257,7 @@ Content-Type: application/json
     "user": {
       "id": "supabase-user-id",
       "email": "user@example.com"
+      "username": "demo-user"
     }
   }
 }
@@ -283,6 +292,7 @@ Content-Type: application/json
 ```json
 {
   "code": 200,
+  "msg": "success",
   "data": {
     "accessToken": "...",
     "tokenType": "Bearer",
@@ -311,6 +321,7 @@ Authorization: Bearer <accessToken>
 ```json
 {
   "code": 200,
+  "msg": "success",
   "data": {
     "id": "supabase-user-id",
     "email": "user@example.com",
@@ -323,13 +334,10 @@ Authorization: Bearer <accessToken>
 
 ```js
 router.get('/me', requireAuth, (req, res) => {
-  res.send({
-    code: 200,
-    data: {
-      id: req.user.sub,
-      email: req.user.email,
-      username: req.user.username,
-    },
+  sendSuccess(res, {
+    id: req.user.sub,
+    email: req.user.email,
+    username: req.user.username,
   })
 })
 ```
@@ -373,6 +381,7 @@ service 里后面可以换成查 Supabase 表、MySQL、Redis 或第三方支付
 ```js
 const express = require('express')
 const { createAppAuthMiddleware } = require('../middleware/auth')
+const { sendError, sendSuccess } = require('../util/response')
 const { getMyMembership } = require('../services/memberships')
 
 function createMembershipsRouter(config) {
@@ -383,15 +392,9 @@ function createMembershipsRouter(config) {
     try {
       const membership = await getMyMembership(req.user.sub)
 
-      res.send({
-        code: 200,
-        data: membership,
-      })
+      sendSuccess(res, membership)
     } catch (error) {
-      res.status(500).send({
-        code: 500,
-        msg: error.message || 'Internal Server Error',
-      })
+      sendError(res, 500, error.message || 'Internal Server Error')
     }
   })
 
@@ -432,10 +435,7 @@ function validateEmail(req, res) {
   const { email } = req.body || {}
 
   if (!email) {
-    res.status(400).send({
-      code: 400,
-      msg: '邮箱不能为空',
-    })
+    sendError(res, 400, '邮箱不能为空')
     return null
   }
 
@@ -467,11 +467,8 @@ const requireAuth = createAppAuthMiddleware(config.jwt)
 router.post('/something', requireAuth, async (req, res) => {
   const userId = req.user.sub
 
-  res.send({
-    code: 200,
-    data: {
-      userId,
-    },
+  sendSuccess(res, {
+    userId,
   })
 })
 ```
@@ -487,7 +484,8 @@ Authorization: Bearer <accessToken>
 ```json
 {
   "code": 401,
-  "msg": "Unauthorized"
+  "msg": "Unauthorized",
+  "data": null
 }
 ```
 
@@ -496,7 +494,8 @@ Authorization: Bearer <accessToken>
 ```json
 {
   "code": 401,
-  "msg": "Invalid token"
+  "msg": "Invalid token",
+  "data": null
 }
 ```
 
@@ -555,13 +554,14 @@ Authorization: Bearer <accessToken>
 
 ## 返回格式约定
 
-建议所有接口保持这个格式：
+所有业务后端接口都保持这个格式：
 
 成功：
 
 ```json
 {
   "code": 200,
+  "msg": "success",
   "data": {}
 }
 ```
@@ -571,15 +571,33 @@ Authorization: Bearer <accessToken>
 ```json
 {
   "code": 400,
-  "msg": "错误原因"
+  "msg": "错误原因",
+  "data": null
 }
 ```
 
-需要创建资源时可以用 HTTP `201`，例如注册成功：
+约定：
+
+- 响应体固定使用 `code + msg + data`。
+- `code` 为 `200` 时，`data` 放业务数据；没有业务数据时可以是空对象或 `null`。
+- `code` 不是 `200` 时，`data` 固定为 `null`，不要返回业务数据。
+- HTTP 状态码可以和错误 `code` 保持一致；业务成功统一返回 `code: 200`。
+
+推荐在路由里使用统一 helper：
+
+```js
+const { sendError, sendSuccess } = require('../util/response')
+
+sendSuccess(res, data)
+sendError(res, 400, '错误原因')
+```
+
+注册成功也返回：
 
 ```json
 {
-  "code": 201,
+  "code": 200,
+  "msg": "success",
   "data": {}
 }
 ```

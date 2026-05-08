@@ -2,6 +2,7 @@ const express = require('express')
 const config = require('./config')
 const { createAuthRouter } = require('./routes/auth')
 const { createMeRouter } = require('./routes/me')
+const { sendSuccess } = require('./util/response')
 
 function createApp() {
   const app = express()
@@ -9,9 +10,7 @@ function createApp() {
   app.use(express.json())
 
   app.get('/health', (_, res) => {
-    res.send({
-      code: 200,
-      status: 'ok',
+    sendSuccess(res, {
       service: 'custom-backend',
     })
   })

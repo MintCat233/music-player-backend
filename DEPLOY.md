@@ -42,6 +42,7 @@ ghcr.io/mintcat233/api-enhanced
 | `API_AUTH_JWT_SECRET` | Secret | JWT 强随机密钥，两个服务共用 |
 | `SUPABASE_URL` | Secret | Supabase Project URL |
 | `SUPABASE_PUBLISHABLE_KEY` | Secret | Supabase publishable key，形如 `sb_publishable_...` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Secret | Supabase service role key，只给 custom-backend 使用 |
 
 可选 Secret：
 
@@ -102,6 +103,7 @@ APP_DEMO_USER_EMAIL=demo@example.com
 APP_DEMO_USER_PASSWORD=demo-password
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+SUPABASE_SERVICE_ROLE_KEY=service_role_xxx
 ```
 
 启动：

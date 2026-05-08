@@ -43,6 +43,7 @@ module.exports = {
     url: process.env.SUPABASE_URL,
     publishableKey:
       process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY,
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   },
   demoLogin: {
     enabled: process.env.APP_ENABLE_DEMO_LOGIN === 'true',
