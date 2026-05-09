@@ -8,6 +8,7 @@ const {
   createSupabaseAuthClient,
   sendSignUpCode,
   signInWithEmail,
+  isUserRegistered
 } = require('../services/users')
 const { sendError, sendSuccess } = require('../util/response')
 
