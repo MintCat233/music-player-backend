@@ -1,4 +1,10 @@
 function sendSuccess(res, data = null, msg = 'success') {
+  console.log('Response:', {
+    code: 200,
+    msg,
+    data,}
+  )
+
   res.send({
     code: 200,
     msg,
@@ -7,6 +13,11 @@ function sendSuccess(res, data = null, msg = 'success') {
 }
 
 function sendError(res, code, msg) {
+    console.log('Response:', {
+    code,
+    msg,
+    data,}
+  )
   res.status(code).send({
     code,
     msg,
