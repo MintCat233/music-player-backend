@@ -74,11 +74,6 @@ async function completeSignUpWithCode(
 ) {
   assertSupabaseConfigured(supabase)
 
-  if (supabaseAdmin) {
-    // TODO: 在这里填注册成功后需要 admin 权限的逻辑。
-    // 例如写入受 RLS 保护的 profile 表、更新 app_metadata 等。
-  }
-
   const { data, error } = await supabase.auth.verifyOtp({
     email,
     token: code,
@@ -112,6 +107,19 @@ async function completeSignUpWithCode(
     throw updateError
   }
 
+  const { data: profileData, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .upsert({
+      user_id: data.user.id,
+      username,
+      email,
+      is_binding: false
+    })
+
+  if (profileError) {
+    throw profileError
+  }
+
 
 
   return normalizeSupabaseUser(updateData.user || data.user)
@@ -136,6 +144,21 @@ async function signInWithEmail({ email, password }, supabase, supabaseAdmin) {
 
 
   return normalizeSupabaseUser(data.user)
+}
+
+async function isUserRegistered(email,supabase){
+  assertSupabaseConfigured(supabase)
+  
+  const { data, error } = await supabase.from('profiles')
+    .select('user_id')
+    .eq('email', email)
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  return !!data
 }
 
 function authenticateDemoUser({ email, password }, demoLogin) {

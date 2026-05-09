@@ -290,6 +290,11 @@ function createAuthRouter(config) {
     }
 
     try {
+      const isRegistered = await isUserRegistered(credentials.email, supabase)
+      if (isRegistered) {
+        sendError(res, 400, '该邮箱已被注册')
+        return
+      }
       const result = await sendSignUpCode(credentials, supabase)
 
       sendSuccess(
@@ -358,6 +363,11 @@ function createAuthRouter(config) {
     try {
       let user = null
 
+      const isRegistered = await isUserRegistered(credentials.email, supabase)
+      if (!isRegistered ) {
+        sendError(res, 401, '该邮箱未注册')
+      } 
+
       if (supabase) {
         user = await signInWithEmail(credentials, supabase, supabaseAdmin)
       } else {
@@ -365,7 +375,7 @@ function createAuthRouter(config) {
       }
 
       if (!user) {
-        sendError(res, 401, 'Invalid email or password')
+        sendError(res, 401, '无效的邮箱或密码')
         return
       }
 
