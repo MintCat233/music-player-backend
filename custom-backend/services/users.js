@@ -184,4 +184,5 @@ module.exports = {
   createSupabaseAuthClient,
   sendSignUpCode,
   signInWithEmail,
+  isUserRegistered
 }
