@@ -152,7 +152,7 @@ async function isUserRegistered(email,supabase){
   const { data, error } = await supabase.from('profiles')
     .select('user_id')
     .eq('email', email)
-    .single()
+    .maybeSingle()
 
   if (error) {
     throw error
