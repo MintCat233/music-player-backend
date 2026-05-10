@@ -366,7 +366,8 @@ function createAuthRouter(config) {
 
       const isRegistered = await isUserRegistered(credentials.email, supabase)
       if (!isRegistered ) {
-        sendError(res, 401, '该邮箱未注册')
+        sendError(res, 400, '该邮箱未注册')
+        return
       } 
 
       if (supabase) {

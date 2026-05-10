@@ -15,8 +15,7 @@ function sendSuccess(res, data = null, msg = 'success') {
 function sendError(res, code, msg) {
     console.log('Response:', {
     code,
-    msg,
-    data,}
+    msg}
   )
   res.status(code).send({
     code,
