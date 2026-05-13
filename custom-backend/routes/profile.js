@@ -9,7 +9,7 @@ function createMpProfileRouter(config) {
   const requireAuth = createAppAuthMiddleware(config.jwt)
   const supabaseAdmin = createSupabaseAdminClient(config)
 
-  router.get('/', requireAuth, async (req, res) => {
+  router.post('/', requireAuth, async (req, res) => {
 
     try {
       const row = await getProfileRowByUserId(req.userid, supabaseAdmin)
