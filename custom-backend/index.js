@@ -1,7 +1,7 @@
 const express = require('express')
 const config = require('./config')
 const { createAuthRouter } = require('./routes/auth')
-const { createMeRouter } = require('./routes/me')
+const { createMpProfileRouter } = require('./routes/profile')
 const { sendSuccess } = require('./util/response')
 
 function createApp() {
@@ -16,7 +16,7 @@ function createApp() {
   })
 
   app.use('/auth', createAuthRouter(config))
-  app.use('/users', createMeRouter(config))
+  app.use('/profile/mp', createMpProfileRouter(config))
 
   return app
 }

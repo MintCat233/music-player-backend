@@ -1,32 +1,4 @@
-const { createClient } = require('@supabase/supabase-js')
-
-function createSupabaseAuthClient(config) {
-  if (!config.supabase.url || !config.supabase.publishableKey) {
-    return null
-  }
-
-  return createClient(config.supabase.url, config.supabase.publishableKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  })
-}
-
-function createSupabaseAdminClient(config) {
-  if (!config.supabase.url || !config.supabase.serviceRoleKey) {
-    return null
-  }
-
-  return createClient(config.supabase.url, config.supabase.serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  })
-}
+const { assertSupabaseConfigured } = require('../lib/supabase')
 
 function normalizeSupabaseUser(user) {
   if (!user) {
@@ -37,14 +9,6 @@ function normalizeSupabaseUser(user) {
     id: user.id,
     email: user.email,
     username: user.user_metadata && user.user_metadata.username,
-  }
-}
-
-function assertSupabaseConfigured(supabase) {
-  if (!supabase) {
-    const error = new Error('Supabase is not configured')
-    error.status = 500
-    throw error
   }
 }
 
@@ -180,9 +144,7 @@ function authenticateDemoUser({ email, password }, demoLogin) {
 module.exports = {
   authenticateDemoUser,
   completeSignUpWithCode,
-  createSupabaseAdminClient,
-  createSupabaseAuthClient,
   sendSignUpCode,
   signInWithEmail,
-  isUserRegistered
+  isUserRegistered,
 }

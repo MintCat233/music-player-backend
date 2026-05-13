@@ -2,13 +2,15 @@ const express = require('express')
 const { signJwt } = require('../auth/jwt')
 const { verifyJwt } = require('../../util/auth')
 const {
-  authenticateDemoUser,
-  completeSignUpWithCode,
   createSupabaseAdminClient,
   createSupabaseAuthClient,
+} = require('../lib/supabase')
+const {
+  authenticateDemoUser,
+  completeSignUpWithCode,
   sendSignUpCode,
   signInWithEmail,
-  isUserRegistered
+  isUserRegistered,
 } = require('../services/users')
 const { sendError, sendSuccess } = require('../util/response')
 
