@@ -10,24 +10,16 @@ function createMpProfileRouter(config) {
   const supabaseAdmin = createSupabaseAdminClient(config)
 
   router.get('/', requireAuth, async (req, res) => {
-    if (!supabaseAdmin) {
-      sendSuccess(res, {
-        id: req.user.sub,
-        email: req.user.email,
-        username: req.user.username,
-        profile: null,
-      })
-      return
-    }
 
     try {
-      const row = await getProfileRowByUserId(req.user.sub, supabaseAdmin)
+      const row = await getProfileRowByUserId(req.userid, supabaseAdmin)
 
       sendSuccess(res, {
-        id: req.user.sub,
-        email: req.user.email,
-        username: req.user.username,
-        profile: row,
+        id: row.user_id,
+        email: req.email,
+        username: row.username,
+        avatar_url:row.avatar_url
+
       })
     } catch (error) {
       sendError(res, error.status || 500, error.message || 'Profile query failed')
