@@ -449,9 +449,9 @@ router.post('/bind-cookie', async (req, res) => {
     return
   }
 
-  const res=bindCookie(cookie, userid, supabaseAdmin)
+  const response=bindCookie(cookie, userid, supabaseAdmin)
 
-  if(res.success){
+  if(response.success){
     sendSuccess(res, { message: 'Cookie绑定成功' })
   } else {
     sendError(res, 500, 'Cookie绑定失败')
@@ -467,10 +467,10 @@ router.post('/cookie',async(req,res)=>{
     sendError(res, 400, 'User ID is required and must be a string')
     return
   }
-  const res=getCookie(userid, supabaseAdmin)
+  const response=getCookie(userid, supabaseAdmin)
 
-  if(res!==null){
-    sendSuccess(res, { cookie: res })
+  if(response!==null){
+    sendSuccess(res, { cookie: response })
   } else {
     sendError(res, 404, 'Cookie not found')
   }
