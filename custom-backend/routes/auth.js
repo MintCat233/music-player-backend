@@ -433,49 +433,46 @@ function createAuthRouter(config) {
     }
   })
 
+  router.post('/bind-cookie', async (req, res) => {
+    const {cookie,userid}= req.body || {}
+
+    if (!cookie || typeof cookie !== 'string') {
+      sendError(res, 400, 'Cookie is required and must be a string')
+      return
+    }
+
+    if (!userid || typeof userid !== 'string') {
+      sendError(res, 400, 'User ID is required and must be a string')
+      return
+    }
+
+    const response=bindCookie(cookie, userid, supabaseAdmin)
+
+    if(response.success){
+      sendSuccess(res, { message: 'Cookie绑定成功' })
+    } else {
+      sendError(res, 500, 'Cookie绑定失败')
+    }
+  })
+
+  router.post('/cookie',async(req,res)=>{
+    const {userid}= req.body || {}
+    
+    if (!userid || typeof userid !== 'string') {
+      sendError(res, 400, 'User ID is required and must be a string')
+      return
+    }
+    const response=getCookie(userid, supabaseAdmin)
+
+    if(response!==null){
+      sendSuccess(res, { cookie: response })
+    } else {
+      sendError(res, 404, 'Cookie not found')
+    }
+  })
+
   return router
 }
-
-router.post('/bind-cookie', async (req, res) => {
-  const {cookie,userid}= req.body || {}
-
-  if (!cookie || typeof cookie !== 'string') {
-    sendError(res, 400, 'Cookie is required and must be a string')
-    return
-  }
-
-  if (!userid || typeof userid !== 'string') {
-    sendError(res, 400, 'User ID is required and must be a string')
-    return
-  }
-
-  const response=bindCookie(cookie, userid, supabaseAdmin)
-
-  if(response.success){
-    sendSuccess(res, { message: 'Cookie绑定成功' })
-  } else {
-    sendError(res, 500, 'Cookie绑定失败')
-  }
-
-
-})
-
-router.post('/cookie',async(req,res)=>{
-  const {userid}= req.body || {}
-  
-  if (!userid || typeof userid !== 'string') {
-    sendError(res, 400, 'User ID is required and must be a string')
-    return
-  }
-  const response=getCookie(userid, supabaseAdmin)
-
-  if(response!==null){
-    sendSuccess(res, { cookie: response })
-  } else {
-    sendError(res, 404, 'Cookie not found')
-  }
-})
-  
 
 module.exports = {
   createAuthRouter,
