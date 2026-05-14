@@ -141,37 +141,36 @@ function authenticateDemoUser({ email, password }, demoLogin) {
   }
 }
 
-function bindCookie(cookie,userid, supabaseAdmin){ 
+async function bindCookie(cookie,userid, supabaseAdmin){ 
   assertSupabaseConfigured(supabaseAdmin)
 
-  const res=supabaseAdmin.from('ncm_binding')
+  const { error } = await supabaseAdmin.from('ncm_binding')
     .insert({
       user_id: userid,
       cookie: cookie
     })
 
-  return res
+  if (error) {
+    throw error
+  }
+
+  return true
 
 }
 
-function getCookie(userid, supabaseAdmin){
+async function getCookie(userid, supabaseAdmin){
   assertSupabaseConfigured(supabaseAdmin)
 
-  const isBinding= supabaseAdmin.from('profiles')
-    .select('is_binding')
-    .eq('user_id', userid)
-    .maybeSingle()
-
-  if(!isBinding){
-    return null
-  }
-
-  const res=supabaseAdmin.from('ncm_binding')
+  const { data, error } = await supabaseAdmin.from('ncm_binding')
     .select('cookie')
     .eq('user_id', userid)
     .maybeSingle()
 
-  return res
+  if (error) {
+    throw error
+  }
+
+  return data ? data.cookie : null
 }
 
 module.exports = {

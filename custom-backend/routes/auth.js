@@ -446,12 +446,11 @@ function createAuthRouter(config) {
       return
     }
 
-    const response=bindCookie(cookie, userid, supabaseAdmin)
-
-    if(response.success){
+    try {
+      await bindCookie(cookie, userid, supabaseAdmin)
       sendSuccess(res, { message: 'Cookie绑定成功' })
-    } else {
-      sendError(res, 500, 'Cookie绑定失败')
+    } catch (error) {
+      sendError(res, error.status || 500, error.message || 'Cookie绑定失败')
     }
   })
 
@@ -462,7 +461,7 @@ function createAuthRouter(config) {
       sendError(res, 400, 'User ID is required and must be a string')
       return
     }
-    const response=getCookie(userid, supabaseAdmin)
+    const response=await getCookie(userid, supabaseAdmin)
 
     if(response!==null){
       sendSuccess(res, { cookie: response })
