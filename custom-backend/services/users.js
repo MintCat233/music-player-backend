@@ -141,10 +141,24 @@ function authenticateDemoUser({ email, password }, demoLogin) {
   }
 }
 
+function bindCookie(cookie,userid, supabaseAdmin){ 
+  assertSupabaseConfigured(supabaseAdmin)
+
+  const res=supabaseAdmin.from('ncm_binding')
+    .insert({
+      user_id: userid,
+      cookie: cookie
+    })
+
+  return res
+
+}
+
 module.exports = {
   authenticateDemoUser,
   completeSignUpWithCode,
   sendSignUpCode,
   signInWithEmail,
   isUserRegistered,
+  bindCookie,
 }

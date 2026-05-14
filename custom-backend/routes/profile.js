@@ -29,7 +29,7 @@ function createMpProfileRouter(config) {
 
     if (!supabaseAdmin) {
       sendSuccess(res, {
-        id: userId,
+        userid: userId,
         email: req.user.email,
         username: req.user.username,
         avatar_url: null,

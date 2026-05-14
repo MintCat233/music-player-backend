@@ -11,6 +11,7 @@ const {
   sendSignUpCode,
   signInWithEmail,
   isUserRegistered,
+  bindCookie
 } = require('../services/users')
 const { sendError, sendSuccess } = require('../util/response')
 
@@ -433,6 +434,31 @@ function createAuthRouter(config) {
 
   return router
 }
+
+router.post('/bind-cookie', async (req, res) => {
+  const {cookie,userid}= req.body || {}
+
+  if (!cookie || typeof cookie !== 'string') {
+    sendError(res, 400, 'Cookie is required and must be a string')
+    return
+  }
+
+  if (!userid || typeof userid !== 'string') {
+    sendError(res, 400, 'User ID is required and must be a string')
+    return
+  }
+
+  const res=bindCookie(cookie, userid, supabaseAdmin)
+
+  if(res.success){
+    sendSuccess(res, { message: 'Cookie绑定成功' })
+  } else {
+    sendError(res, 500, 'Cookie绑定失败')
+  }
+
+
+})
+  
 
 module.exports = {
   createAuthRouter,
