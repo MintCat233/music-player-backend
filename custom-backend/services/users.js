@@ -154,6 +154,26 @@ function bindCookie(cookie,userid, supabaseAdmin){
 
 }
 
+function getCookie(userid, supabaseAdmin){
+  assertSupabaseConfigured(supabaseAdmin)
+
+  const isBinding= supabaseAdmin.from('profiles')
+    .select('is_binding')
+    .eq('user_id', userid)
+    .maybeSingle()
+
+  if(!isBinding){
+    return null
+  }
+
+  const res=supabaseAdmin.from('ncm_binding')
+    .select('cookie')
+    .eq('user_id', userid)
+    .maybeSingle()
+
+  return res
+}
+
 module.exports = {
   authenticateDemoUser,
   completeSignUpWithCode,
@@ -161,4 +181,5 @@ module.exports = {
   signInWithEmail,
   isUserRegistered,
   bindCookie,
+  getCookie
 }

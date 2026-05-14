@@ -11,7 +11,8 @@ const {
   sendSignUpCode,
   signInWithEmail,
   isUserRegistered,
-  bindCookie
+  bindCookie,
+  getCookie
 } = require('../services/users')
 const { sendError, sendSuccess } = require('../util/response')
 
@@ -457,6 +458,22 @@ router.post('/bind-cookie', async (req, res) => {
   }
 
 
+})
+
+router.post('/cookie',async(req,res)=>{
+  const {userid}= req.body || {}
+  
+  if (!userid || typeof userid !== 'string') {
+    sendError(res, 400, 'User ID is required and must be a string')
+    return
+  }
+  const res=getCookie(userid, supabaseAdmin)
+
+  if(res!==null){
+    sendSuccess(res, { cookie: res })
+  } else {
+    sendError(res, 404, 'Cookie not found')
+  }
 })
   
 
