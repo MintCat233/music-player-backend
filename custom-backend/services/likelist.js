@@ -12,10 +12,10 @@ async function syncNcmLikelist(userid, supabaseAdmin,likelist){
       console.error('Error syncing like list item:', item, 'Error:', error)
       throw error
     }
-    return data;
+    return data.song_id;
   })
 
-  return ret ?? [];
+  return Promise.all(ret) ?? [];
 }
 
 module.exports = {
