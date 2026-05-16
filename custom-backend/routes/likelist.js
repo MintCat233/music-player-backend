@@ -10,7 +10,7 @@ function createLikelistRouter(config) {
   const supabaseAdmin = createSupabaseAdminClient(config)
   const router = express.Router()
 
-  router.get('/sync',requireAuth, async (req, res) => {
+  router.post('/sync',requireAuth, async (req, res) => {
     const body = req.body || {}
     const userid = body.userid || null
     const likelist = body.likelist || []
