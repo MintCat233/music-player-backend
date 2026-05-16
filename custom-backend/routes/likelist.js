@@ -23,10 +23,17 @@ function createLikelistRouter(config) {
       sendError(res, 400, 'likelist must be an array')
       return
     }
-    const result = await syncNcmLikelist(userid, supabaseAdmin, likelist)
-    sendSuccess(res, {
-      likelist: result,
-    })
+    console.log('Received sync request for userid:', userid, 'with likelist:', likelist)
+
+    try {
+      const result = await syncNcmLikelist(userid, supabaseAdmin, likelist)
+      sendSuccess(res, {
+        likelist: result,
+      })
+    } catch (error) {
+      console.error('Error syncing like list:', error)
+      sendError(res, 500, 'Internal server error')
+    }
   })
 
   return router
