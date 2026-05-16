@@ -1,7 +1,8 @@
 async function syncNcmLikelist(userid, supabaseAdmin,likelist){ 
   console.log('syncNcmLikelist called with userid:', userid, 'likelist:', likelist)
-  for (const item of likelist) {
-    const { error } = await supabaseAdmin.from('like_list')
+  
+  const ret = likelist.map(async item=>{
+    const { data, error } = await supabaseAdmin.from('like_list')
       .upsert({
         user_id: userid,
         song_id: item,
@@ -11,9 +12,10 @@ async function syncNcmLikelist(userid, supabaseAdmin,likelist){
       console.error('Error syncing like list item:', item, 'Error:', error)
       throw error
     }
-  }
+    return data;
+  })
 
-  return data ? data.list : []
+  return ret ?? [];
 }
 
 module.exports = {
