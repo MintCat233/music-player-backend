@@ -7,7 +7,8 @@ async function syncNcmLikelist(userid, supabaseAdmin,likelist){
         user_id: userid,
         song_id: item,
       }
-      .select('song_id'), { onConflict: 'user_id,song_id' })
+      , { onConflict: 'user_id,song_id' })
+      .select('song_id')
 
     if (error) {
       console.error('Error syncing like list item:', item, 'Error:', error)
@@ -17,7 +18,7 @@ async function syncNcmLikelist(userid, supabaseAdmin,likelist){
     return data.song_id;
   })
 
-  return Promise.all(ret) ?? [];
+  return await Promise.all(ret) ?? [];
 }
 
 module.exports = {
