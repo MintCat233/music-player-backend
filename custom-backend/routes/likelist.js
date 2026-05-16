@@ -1,5 +1,5 @@
 
-import {syncNcmLikelist} from '../services/likelist'
+import {syncNcmLikelist} from '../services/likelist.js'
 const express = require('express')
 const { createSupabaseAdminClient } = require('../lib/supabase')
 const { createAppAuthMiddleware } = require('../middleware/auth')
