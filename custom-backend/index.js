@@ -17,6 +17,7 @@ function createApp() {
 
   app.use('/auth', createAuthRouter(config))
   app.use('/profile/mp', createMpProfileRouter(config))
+  app.use('/likelist', createLikelistRouter(config))
 
   return app
 }
