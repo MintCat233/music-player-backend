@@ -1,9 +1,16 @@
+
+import {syncNcmLikelist} from '../services/likelist'
+const express = require('express')
+const { createSupabaseAdminClient } = require('../lib/supabase')
+const { createAppAuthMiddleware } = require('../middleware/auth')
+const { sendError, sendSuccess } = require('../util/response')
+
 function createLikelistRouter(config) {
   const requireAuth = createAppAuthMiddleware(config.jwt)
   const supabaseAdmin = createSupabaseAdminClient(config)
   const router = express.Router()
 
-  router.get('/sync', async (req, res) => {
+  router.get('/sync',requireAuth, async (req, res) => {
     const body = req.body || {}
     const userid = body.userid || null
     const likelist = body.likelist || []
