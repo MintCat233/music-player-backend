@@ -1,4 +1,4 @@
-export async function syncNcmLikelist(userid, supabaseAdmin,likelist){ 
+async function syncNcmLikelist(userid, supabaseAdmin,likelist){ 
   for (const item of likelist) {
     const { error } = await supabaseAdmin.from('like_list')
       .upsert({
@@ -12,4 +12,8 @@ export async function syncNcmLikelist(userid, supabaseAdmin,likelist){
   }
 
   return data ? data.list : []
+}
+
+module.exports = {
+  syncNcmLikelist,
 }
