@@ -4,7 +4,7 @@ async function syncNcmLikelist(userid, supabaseAdmin,likelist){
     const { error } = await supabaseAdmin.from('like_list')
       .upsert({
         user_id: userid,
-        song_id: item.song_id,
+        song_id: item,
       }, { onConflict: 'user_id,song_id' })
 
     if (error) {
