@@ -2,6 +2,7 @@ const express = require('express')
 const config = require('./config')
 const { createAuthRouter } = require('./routes/auth')
 const { createMpProfileRouter } = require('./routes/profile')
+const {createLikelistRouter} = require('./routes/likelist')
 const { sendSuccess } = require('./util/response')
 
 function createApp() {
