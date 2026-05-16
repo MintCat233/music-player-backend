@@ -6,7 +6,8 @@ async function syncNcmLikelist(userid, supabaseAdmin,likelist){
       .upsert({
         user_id: userid,
         song_id: item,
-      }, { onConflict: 'user_id,song_id' })
+      }
+      .select('song_id'), { onConflict: 'user_id,song_id' })
 
     if (error) {
       console.error('Error syncing like list item:', item, 'Error:', error)
