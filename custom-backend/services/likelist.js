@@ -25,20 +25,21 @@ async function syncNcmLikelist(userid, supabaseAdmin, likelist) {
 
   for (const rawItem of likelist) {
     // Support either array of primitive ids or objects like { song_id } / { id }
-    const songId =
-      rawItem && (rawItem.song_id || rawItem.id || rawItem.songId || rawItem)
+    const songId = rawItem && (rawItem.song_id || rawItem.id || rawItem.songId || rawItem)
 
     if (!songId) {
       console.warn('Skipping invalid likelist item (no song id):', rawItem)
       continue
     }
 
+    const songIdString = String(songId)
+
     const { data, error } = await supabaseAdmin
       .from('like_list')
       .upsert(
         {
           user_id: userid,
-          song_id: songId,
+          song_id: songIdString,
         },
         { onConflict: 'user_id,song_id' },
       )
@@ -49,7 +50,7 @@ async function syncNcmLikelist(userid, supabaseAdmin, likelist) {
       throw error
     }
 
-    const insertedSongId = data?.[0]?.song_id || songId
+    const insertedSongId = String(data?.[0]?.song_id || songIdString)
     processed.push(insertedSongId)
   }
 
@@ -80,7 +81,7 @@ async function getLikelist(userid, supabaseAdmin) {
     throw error
   }
 
-  return data?.map((item) => item.song_id) ?? []
+  return data?.map((item) => String(item.song_id)) ?? []
 }
 
 module.exports = {
