@@ -255,7 +255,7 @@ function createTogetherWsServer(config, options = {}) {
 
         case 'queue.add': {
           const roomId = requireJoinedRoom(session, payload)
-          const room = store.addSong(roomId, payload.song)
+          const room = store.addSong(roomId, payload.song || payload.songId)
           send(session.ws, {
             type: 'queue.added',
             requestId: requestId || null,

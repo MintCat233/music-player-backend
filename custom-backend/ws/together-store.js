@@ -13,27 +13,30 @@ function createRoomId() {
 }
 
 function normalizeSong(song) {
-  if (!song || typeof song !== 'object') {
+  const songLike =
+    song && typeof song === 'object' ? song : { id: song, name: song }
+  const id = normalizeText(songLike.id || songLike.songId || songLike.song_id)
+  const name = normalizeText(songLike.name) || id
+
+  if (!id) {
     return null
   }
 
-  const id = normalizeText(song.id)
-  const name = normalizeText(song.name)
-
-  if (!id || !name) {
-    return null
-  }
+  const duration = Number(songLike.duration || songLike.durationMs)
+  const safeDuration =
+    Number.isFinite(duration) && duration > 0 ? duration : 0
 
   return {
     id,
     name,
-    alias: Array.isArray(song.alias) ? song.alias : [],
-    artists: Array.isArray(song.artists) ? song.artists : [],
-    duration: Number.isFinite(Number(song.duration))
-      ? Number(song.duration)
-      : 0,
-    album: song.album && typeof song.album === 'object' ? song.album : {},
-    coverUrl: song.coverUrl || song.cover_url || song.cover || null,
+    alias: Array.isArray(songLike.alias) ? songLike.alias : [],
+    artists: Array.isArray(songLike.artists) ? songLike.artists : [],
+    duration: safeDuration,
+    album:
+      songLike.album && typeof songLike.album === 'object'
+        ? songLike.album
+        : {},
+    coverUrl: songLike.coverUrl || songLike.cover_url || songLike.cover || null,
   }
 }
 
@@ -96,11 +99,13 @@ class TogetherRoomStore {
       isPrivate: Boolean(isPrivate),
       passwordHash: isPrivate ? createPasswordHash(password) : null,
       participants: new Map(),
+      playbackHostUserId: null,
       playlist: [],
       playback: {
         currentSongId: null,
         isPlaying: false,
         positionMs: 0,
+        durationMs: 0,
         updatedAt: now,
       },
       createdAt: now,
@@ -132,6 +137,7 @@ class TogetherRoomStore {
     }
 
     this.addParticipant(room, user, connectionId)
+    this.ensurePlaybackHost(room)
     room.updatedAt = Date.now()
     return room
   }
@@ -143,10 +149,12 @@ class TogetherRoomStore {
     const participant = room.participants.get(userId)
     if (!participant) return room
 
+    this.advancePlayback(room)
     participant.connectionIds.delete(connectionId)
     if (participant.connectionIds.size === 0) {
       room.participants.delete(userId)
     }
+    this.ensurePlaybackHost(room)
     room.updatedAt = Date.now()
     return room
   }
@@ -167,6 +175,7 @@ class TogetherRoomStore {
     }
     if (!room.playback.currentSongId) {
       room.playback.currentSongId = room.playlist[0]?.id || null
+      room.playback.durationMs = room.playlist[0]?.duration || 0
     }
     room.updatedAt = Date.now()
     return room
@@ -235,6 +244,7 @@ class TogetherRoomStore {
       const nextSong = room.playlist[index] || room.playlist[0] || null
       room.playback.currentSongId = nextSong ? nextSong.id : null
       room.playback.positionMs = 0
+      room.playback.durationMs = nextSong?.duration || 0
       room.playback.updatedAt = Date.now()
     }
     room.updatedAt = Date.now()
@@ -243,9 +253,24 @@ class TogetherRoomStore {
 
   setPlayback(roomId, user, patch) {
     const room = this.requireRoom(roomId)
-    this.requireOwner(room, user)
+    const isOwner = room.owner.id === user.id
+    const isPlaybackHost = this.isPlaybackHost(room, user)
+    if (!isOwner && !isPlaybackHost) {
+      const error = new Error('无权限同步播放状态')
+      error.status = 403
+      throw error
+    }
+    this.advancePlayback(room)
 
     if (patch.currentSongId !== undefined) {
+      if (!isOwner) {
+        const reportedSongId = normalizeText(patch.currentSongId)
+        if (reportedSongId !== room.playback.currentSongId) {
+          room.playback.updatedAt = Date.now()
+          room.updatedAt = Date.now()
+          return room
+        }
+      }
       const songId = normalizeText(patch.currentSongId)
       const exists = !songId || room.playlist.some((song) => song.id === songId)
       if (!exists) {
@@ -254,6 +279,12 @@ class TogetherRoomStore {
         throw error
       }
       room.playback.currentSongId = songId || null
+      const song = room.playlist.find((item) => item.id === songId)
+      room.playback.durationMs = song?.duration || room.playback.durationMs || 0
+    }
+
+    if (patch.durationMs !== undefined) {
+      room.playback.durationMs = Math.max(0, Number(patch.durationMs) || 0)
     }
 
     if (patch.isPlaying !== undefined) {
@@ -270,6 +301,8 @@ class TogetherRoomStore {
   }
 
   serializeRoom(room, userId) {
+    this.advancePlayback(room)
+    this.ensurePlaybackHost(room)
     return {
       id: room.id,
       name: room.name,
@@ -277,6 +310,9 @@ class TogetherRoomStore {
       ownerId: room.owner.id,
       ownerName: room.owner.username,
       isOwnedByMe: room.owner.id === userId,
+      playbackHostUserId: room.playbackHostUserId,
+      hostUserId: room.playbackHostUserId,
+      isPlaybackHost: room.playbackHostUserId === userId,
       isPrivate: room.isPrivate,
       listenerCount: room.participants.size,
       songCount: room.playlist.length,
@@ -288,9 +324,10 @@ class TogetherRoomStore {
           username: participant.user.username,
           isOwner: participant.user.id === room.owner.id,
           joinedAt: participant.joinedAt,
+          isPlaybackHost: participant.user.id === room.playbackHostUserId,
         }),
       ),
-      playlist: room.playlist,
+      playlist: room.playlist.map((song) => song.id),
       playback: room.playback,
       createdAt: room.createdAt,
       updatedAt: room.updatedAt,
@@ -311,6 +348,81 @@ class TogetherRoomStore {
     })
   }
 
+  advancePlayback(room, now = Date.now()) {
+    if (!room.playback.currentSongId || room.playlist.length === 0) {
+      room.playback.currentSongId = null
+      room.playback.positionMs = 0
+      room.playback.durationMs = 0
+      room.playback.isPlaying = false
+      room.playback.updatedAt = now
+      return
+    }
+
+    if (!room.playback.isPlaying) {
+      room.playback.updatedAt = now
+      return
+    }
+
+    const elapsed = Math.max(0, now - (room.playback.updatedAt || now))
+    let position = Math.max(0, room.playback.positionMs + elapsed)
+    let currentIndex = room.playlist.findIndex(
+      (song) => song.id === room.playback.currentSongId,
+    )
+    if (currentIndex < 0) {
+      currentIndex = 0
+      room.playback.currentSongId = room.playlist[0].id
+      position = 0
+    }
+
+    let duration =
+      Number(room.playback.durationMs) || room.playlist[currentIndex].duration || 0
+    while (duration > 0 && position >= duration && room.playlist.length > 0) {
+      position -= duration
+      currentIndex = (currentIndex + 1) % room.playlist.length
+      const nextSong = room.playlist[currentIndex]
+      room.playback.currentSongId = nextSong.id
+      duration = Number(nextSong.duration) || 0
+      room.playback.durationMs = duration
+      if (duration <= 0) {
+        position = 0
+        break
+      }
+    }
+
+    room.playback.positionMs = position
+    room.playback.updatedAt = now
+  }
+
+  ensurePlaybackHost(room) {
+    const now = Date.now()
+    if (room.participants.size === 0) {
+      this.advancePlayback(room, now)
+      room.playbackHostUserId = null
+      room.playback.isPlaying = false
+      room.playback.updatedAt = now
+      return
+    }
+
+    if (
+      room.playbackHostUserId &&
+      room.participants.has(room.playbackHostUserId)
+    ) {
+      return
+    }
+
+    const ownerParticipant = room.participants.get(room.owner.id)
+    const nextHost = ownerParticipant || this.firstParticipant(room)
+    room.playbackHostUserId = nextHost?.user.id || null
+  }
+
+  firstParticipant(room) {
+    return (
+      Array.from(room.participants.values()).sort(
+        (a, b) => a.joinedAt - b.joinedAt,
+      )[0] || null
+    )
+  }
+
   requireRoom(roomId) {
     const room = this.getRoom(roomId)
     if (!room) {
@@ -327,6 +439,19 @@ class TogetherRoomStore {
       error.status = 403
       throw error
     }
+  }
+
+  requirePlaybackHost(room, user) {
+    if (!this.isPlaybackHost(room, user)) {
+      const error = new Error('无权限同步播放状态')
+      error.status = 403
+      throw error
+    }
+  }
+
+  isPlaybackHost(room, user) {
+    this.ensurePlaybackHost(room)
+    return room.playbackHostUserId === user.id
   }
 }
 
