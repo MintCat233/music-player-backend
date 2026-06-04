@@ -25,7 +25,8 @@ async function syncNcmLikelist(userid, supabaseAdmin, likelist) {
 
   for (const rawItem of likelist) {
     // Support either array of primitive ids or objects like { song_id } / { id }
-    const songId = rawItem && (rawItem.song_id || rawItem.id || rawItem.songId || rawItem)
+    const songId =
+      rawItem && (rawItem.song_id || rawItem.id || rawItem.songId || rawItem)
 
     if (!songId) {
       console.warn('Skipping invalid likelist item (no song id):', rawItem)
@@ -84,7 +85,40 @@ async function getLikelist(userid, supabaseAdmin) {
   return data?.map((item) => String(item.song_id)) ?? []
 }
 
+async function addLikedSong(userid, supabaseAdmin, songId) {
+  assertSupabaseConfigured(supabaseAdmin)
+
+  if (!userid) {
+    const e = new Error('userid is required')
+    e.status = 400
+    throw e
+  }
+
+  const songIdString = String(songId || '').trim()
+  if (!songIdString) {
+    const e = new Error('song_id is required')
+    e.status = 400
+    throw e
+  }
+
+  const { error } = await supabaseAdmin.from('like_list').upsert(
+    {
+      user_id: userid,
+      song_id: songIdString,
+    },
+    { onConflict: 'user_id,song_id' },
+  )
+
+  if (error) {
+    console.error('Error adding liked song:', songIdString, 'Error:', error)
+    throw error
+  }
+
+  return getLikelist(userid, supabaseAdmin)
+}
+
 module.exports = {
+  addLikedSong,
   syncNcmLikelist,
   getLikelist,
 }

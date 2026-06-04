@@ -2,7 +2,8 @@ const express = require('express')
 const config = require('./config')
 const { createAuthRouter } = require('./routes/auth')
 const { createMpProfileRouter } = require('./routes/profile')
-const {createLikelistRouter} = require('./routes/likelist')
+const { createLikelistRouter } = require('./routes/likelist')
+const { createSonglistsRouter } = require('./routes/songlists')
 const { sendSuccess } = require('./util/response')
 
 function createApp() {
@@ -19,6 +20,7 @@ function createApp() {
   app.use('/auth', createAuthRouter(config))
   app.use('/profile/mp', createMpProfileRouter(config))
   app.use('/likelist', createLikelistRouter(config))
+  app.use('/songlists', createSonglistsRouter(config))
 
   return app
 }

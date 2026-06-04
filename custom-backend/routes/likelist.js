@@ -2,7 +2,11 @@ const express = require('express')
 const { createSupabaseAdminClient } = require('../lib/supabase')
 const { createAppAuthMiddleware } = require('../middleware/auth')
 const { sendError, sendSuccess } = require('../util/response')
-const { syncNcmLikelist, getLikelist } = require('../services/likelist')
+const {
+  addLikedSong,
+  syncNcmLikelist,
+  getLikelist,
+} = require('../services/likelist')
 
 function createLikelistRouter(config) {
   const requireAuth = createAppAuthMiddleware(config.jwt)
@@ -56,6 +60,26 @@ function createLikelistRouter(config) {
       })
     } catch (error) {
       console.error('Error fetching like list:', error)
+      sendError(
+        res,
+        error.status || 500,
+        error.message || 'Internal server error',
+      )
+    }
+  })
+
+  router.post('/songs', requireAuth, async (req, res) => {
+    const body = req.body || {}
+    const userid = req.user && req.user.sub
+    const songId = body.song_id || body.songId || body.id
+
+    try {
+      const result = await addLikedSong(userid, supabaseAdmin, songId)
+      sendSuccess(res, {
+        likelist: result,
+      })
+    } catch (error) {
+      console.error('Error adding liked song:', error)
       sendError(
         res,
         error.status || 500,
