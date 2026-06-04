@@ -71,6 +71,7 @@ async function getLikelist(userid, supabaseAdmin) {
     .from('like_list')
     .select('song_id')
     .eq('user_id', userid)
+    .order('created_at', { ascending: false })
 
   if (error) {
     console.error(
@@ -117,8 +118,39 @@ async function addLikedSong(userid, supabaseAdmin, songId) {
   return getLikelist(userid, supabaseAdmin)
 }
 
+async function removeLikedSong(userid, supabaseAdmin, songId) {
+  assertSupabaseConfigured(supabaseAdmin)
+
+  if (!userid) {
+    const e = new Error('userid is required')
+    e.status = 400
+    throw e
+  }
+
+  const songIdString = String(songId || '').trim()
+  if (!songIdString) {
+    const e = new Error('song_id is required')
+    e.status = 400
+    throw e
+  }
+
+  const { error } = await supabaseAdmin
+    .from('like_list')
+    .delete()
+    .eq('user_id', userid)
+    .eq('song_id', songIdString)
+
+  if (error) {
+    console.error('Error removing liked song:', songIdString, 'Error:', error)
+    throw error
+  }
+
+  return getLikelist(userid, supabaseAdmin)
+}
+
 module.exports = {
   addLikedSong,
+  removeLikedSong,
   syncNcmLikelist,
   getLikelist,
 }

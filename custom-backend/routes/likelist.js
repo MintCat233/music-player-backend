@@ -4,6 +4,7 @@ const { createAppAuthMiddleware } = require('../middleware/auth')
 const { sendError, sendSuccess } = require('../util/response')
 const {
   addLikedSong,
+  removeLikedSong,
   syncNcmLikelist,
   getLikelist,
 } = require('../services/likelist')
@@ -80,6 +81,25 @@ function createLikelistRouter(config) {
       })
     } catch (error) {
       console.error('Error adding liked song:', error)
+      sendError(
+        res,
+        error.status || 500,
+        error.message || 'Internal server error',
+      )
+    }
+  })
+
+  router.delete('/songs/:songId', requireAuth, async (req, res) => {
+    const userid = req.user && req.user.sub
+    const songId = req.params.songId
+
+    try {
+      const result = await removeLikedSong(userid, supabaseAdmin, songId)
+      sendSuccess(res, {
+        likelist: result,
+      })
+    } catch (error) {
+      console.error('Error removing liked song:', error)
       sendError(
         res,
         error.status || 500,
