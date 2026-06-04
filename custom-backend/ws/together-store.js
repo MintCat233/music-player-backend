@@ -262,6 +262,13 @@ class TogetherRoomStore {
     }
     this.advancePlayback(room)
 
+    if (!isOwner && patch.isPlaying !== undefined) {
+      const reportedIsPlaying = Boolean(patch.isPlaying)
+      if (reportedIsPlaying !== room.playback.isPlaying) {
+        return room
+      }
+    }
+
     if (patch.currentSongId !== undefined) {
       if (!isOwner) {
         const reportedSongId = normalizeText(patch.currentSongId)
@@ -287,7 +294,7 @@ class TogetherRoomStore {
       room.playback.durationMs = Math.max(0, Number(patch.durationMs) || 0)
     }
 
-    if (patch.isPlaying !== undefined) {
+    if (isOwner && patch.isPlaying !== undefined) {
       room.playback.isPlaying = Boolean(patch.isPlaying)
     }
 
