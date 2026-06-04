@@ -1,5 +1,6 @@
 services:
   ncm-api:
+    build: .
     image: ${APP_IMAGE:-ghcr.io/mintcat233/api-enhanced:latest}
     container_name: api-enhanced-ncm-api
     restart: unless-stopped
@@ -13,6 +14,7 @@ services:
       - '3500:3000'
 
   custom-backend:
+    build: .
     image: ${APP_IMAGE:-ghcr.io/mintcat233/api-enhanced:latest}
     container_name: api-enhanced-custom-backend
     restart: unless-stopped
@@ -27,3 +29,19 @@ services:
     command: ['/sbin/tini', '--', 'node', 'custom-backend/index.js']
     ports:
       - '3510:4000'
+
+  together-ws:
+    build: .
+    image: ${APP_IMAGE:-ghcr.io/mintcat233/api-enhanced:latest}
+    container_name: api-enhanced-together-ws
+    restart: unless-stopped
+    depends_on:
+      - custom-backend
+    env_file:
+      - .env
+    environment:
+      APP_WS_HOST: 0.0.0.0
+      APP_WS_PORT: 4100
+    command: ['/sbin/tini', '--', 'node', 'custom-backend/ws-server.js']
+    ports:
+      - '3520:4100'

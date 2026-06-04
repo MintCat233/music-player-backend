@@ -29,6 +29,11 @@ function getNumberEnv(name, fallback) {
 module.exports = {
   port: getNumberEnv('APP_BACKEND_PORT', 4000),
   host: process.env.APP_BACKEND_HOST || '127.0.0.1',
+  ws: {
+    port: getNumberEnv('APP_WS_PORT', 4100),
+    host: process.env.APP_WS_HOST || '127.0.0.1',
+    heartbeatIntervalMs: getNumberEnv('APP_WS_HEARTBEAT_INTERVAL_MS', 30000),
+  },
   jwt: {
     secret: getRequiredEnv('API_AUTH_JWT_SECRET'),
     issuer: process.env.API_AUTH_JWT_ISSUER || 'app-backend',

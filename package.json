@@ -5,6 +5,8 @@
   "scripts": {
     "app-backend": "node custom-backend/index.js",
     "app-backend:dev": "nodemon custom-backend/index.js",
+    "together-ws": "node custom-backend/ws-server.js",
+    "together-ws:dev": "nodemon custom-backend/ws-server.js",
     "dev": "nodemon app.js",
     "start": "node app.js",
     "test": "mocha -r intelli-espower-loader -t 60000 server.test.js main.test.js --exit",
@@ -81,6 +83,7 @@
     "qrcode": "^1.5.4",
     "safe-decode-uri-component": "^1.2.1",
     "tunnel": "^0.0.6",
+    "ws": "^8.21.0",
     "xml2js": "^0.6.2",
     "yargs": "^18.0.0"
   },
