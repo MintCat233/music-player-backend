@@ -12,6 +12,24 @@ function createRoomId() {
   return `room-${crypto.randomInt(100000, 999999)}`
 }
 
+function normalizeNumber(value, fallback = 0) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
+}
+
+function normalizeTimestamp(value, fallback = Date.now()) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function timestampToIso(value) {
+  return new Date(normalizeTimestamp(value)).toISOString()
+}
+
 function normalizeSong(song) {
   const songLike =
     song && typeof song === 'object' ? song : { id: song, name: song }
@@ -23,8 +41,7 @@ function normalizeSong(song) {
   }
 
   const duration = Number(songLike.duration || songLike.durationMs)
-  const safeDuration =
-    Number.isFinite(duration) && duration > 0 ? duration : 0
+  const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 0
 
   return {
     id,
@@ -40,6 +57,21 @@ function normalizeSong(song) {
   }
 }
 
+function normalizeUser(userLike, fallbackId) {
+  const id = normalizeText(userLike?.id || fallbackId)
+  const email = normalizeText(userLike?.email)
+  const username =
+    normalizeText(userLike?.username || userLike?.nickname) ||
+    email.split('@')[0] ||
+    '用户'
+
+  return {
+    id,
+    email,
+    username,
+  }
+}
+
 function createUserFromClaims(claims) {
   const email = normalizeText(claims.email)
   const username =
@@ -52,9 +84,129 @@ function createUserFromClaims(claims) {
   }
 }
 
+function createRoomFromRow(row) {
+  const now = Date.now()
+  const owner = normalizeUser(row.owner, row.owner_id)
+  const playlist = Array.isArray(row.playlist)
+    ? row.playlist.map(normalizeSong).filter(Boolean)
+    : []
+  const playbackLike =
+    row.playback && typeof row.playback === 'object' ? row.playback : {}
+
+  return {
+    id: normalizeText(row.id),
+    name: normalizeText(row.name),
+    owner,
+    isPrivate: row.is_private === true,
+    passwordHash: row.password_hash || null,
+    participants: new Map(),
+    playbackHostUserId: null,
+    playlist,
+    playback: {
+      currentSongId:
+        normalizeText(
+          playbackLike.currentSongId || playbackLike.current_song_id,
+        ) || null,
+      isPlaying: playbackLike.isPlaying === true,
+      positionMs: normalizeNumber(playbackLike.positionMs),
+      durationMs: normalizeNumber(playbackLike.durationMs),
+      updatedAt: normalizeTimestamp(
+        playbackLike.updatedAt,
+        normalizeTimestamp(row.updated_at, now),
+      ),
+    },
+    createdAt: normalizeTimestamp(row.created_at, now),
+    updatedAt: normalizeTimestamp(row.updated_at, now),
+  }
+}
+
+function createRoomRow(room) {
+  return {
+    id: room.id,
+    name: room.name,
+    owner_id: room.owner.id,
+    owner: room.owner,
+    is_private: room.isPrivate,
+    password_hash: room.passwordHash,
+    playlist: room.playlist,
+    playback: room.playback,
+    created_at: timestampToIso(room.createdAt),
+    updated_at: timestampToIso(room.updatedAt),
+  }
+}
+
 class TogetherRoomStore {
-  constructor() {
+  constructor(options = {}) {
     this.rooms = new Map()
+    this.supabaseAdmin = options.supabaseAdmin || null
+  }
+
+  async loadPersistedRooms() {
+    if (!this.supabaseAdmin) {
+      console.warn(
+        'Together rooms persistence is disabled: Supabase admin client is not configured',
+      )
+      return
+    }
+
+    const { data, error } = await this.supabaseAdmin
+      .from('together_rooms')
+      .select('*')
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      const wrappedError = new Error(
+        `Failed to load together rooms from Supabase: ${error.message}`,
+      )
+      wrappedError.status = 500
+      throw wrappedError
+    }
+
+    this.rooms.clear()
+    for (const row of data || []) {
+      const room = createRoomFromRow(row)
+      if (!room.id || !room.name || !room.owner.id) {
+        continue
+      }
+      this.rooms.set(room.id, room)
+    }
+  }
+
+  async persistRoom(room) {
+    if (!this.supabaseAdmin || !room) {
+      return
+    }
+
+    const { error } = await this.supabaseAdmin
+      .from('together_rooms')
+      .upsert(createRoomRow(room), { onConflict: 'id' })
+
+    if (error) {
+      const wrappedError = new Error(
+        `Failed to persist together room: ${error.message}`,
+      )
+      wrappedError.status = 500
+      throw wrappedError
+    }
+  }
+
+  async deletePersistedRoom(roomId) {
+    if (!this.supabaseAdmin || !roomId) {
+      return
+    }
+
+    const { error } = await this.supabaseAdmin
+      .from('together_rooms')
+      .delete()
+      .eq('id', roomId)
+
+    if (error) {
+      const wrappedError = new Error(
+        `Failed to delete together room: ${error.message}`,
+      )
+      wrappedError.status = 500
+      throw wrappedError
+    }
   }
 
   listRoomsForUser(userId) {
@@ -309,7 +461,9 @@ class TogetherRoomStore {
 
   serializeRoom(room, userId) {
     this.advancePlayback(room)
-    this.ensurePlaybackHost(room)
+    if (room.participants.size > 0) {
+      this.ensurePlaybackHost(room)
+    }
     return {
       id: room.id,
       name: room.name,
@@ -382,7 +536,9 @@ class TogetherRoomStore {
     }
 
     let duration =
-      Number(room.playback.durationMs) || room.playlist[currentIndex].duration || 0
+      Number(room.playback.durationMs) ||
+      room.playlist[currentIndex].duration ||
+      0
     while (duration > 0 && position >= duration && room.playlist.length > 0) {
       position -= duration
       currentIndex = (currentIndex + 1) % room.playlist.length

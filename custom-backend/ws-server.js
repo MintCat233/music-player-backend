@@ -1,10 +1,23 @@
 const config = require('./config')
+const { createSupabaseAdminClient } = require('./lib/supabase')
 const { createTogetherWsServer } = require('./ws/together-server')
+const { TogetherRoomStore } = require('./ws/together-store')
 
-const { server } = createTogetherWsServer(config)
+async function main() {
+  const supabaseAdmin = createSupabaseAdminClient(config)
+  const store = new TogetherRoomStore({ supabaseAdmin })
+  await store.loadPersistedRooms()
 
-server.listen(config.ws.port, config.ws.host, () => {
-  console.log(
-    `Together WebSocket server started at ws://${config.ws.host}:${config.ws.port}`,
-  )
+  const { server } = createTogetherWsServer(config, { store })
+
+  server.listen(config.ws.port, config.ws.host, () => {
+    console.log(
+      `Together WebSocket server started at ws://${config.ws.host}:${config.ws.port}`,
+    )
+  })
+}
+
+main().catch((error) => {
+  console.error(error)
+  process.exit(1)
 })

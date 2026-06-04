@@ -42,6 +42,7 @@ services:
     environment:
       APP_WS_HOST: 0.0.0.0
       APP_WS_PORT: 4100
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
     command: ['/sbin/tini', '--', 'node', 'custom-backend/ws-server.js']
     ports:
       - '3520:4100'

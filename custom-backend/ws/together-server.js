@@ -152,7 +152,13 @@ function createTogetherWsServer(config, options = {}) {
     return roomId
   }
 
-  function handleMessage(session, raw) {
+  async function persistRoom(room) {
+    if (room) {
+      await store.persistRoom(room)
+    }
+  }
+
+  async function handleMessage(session, raw) {
     const message = safeJsonParse(raw)
 
     if (!message || typeof message !== 'object') {
@@ -185,6 +191,8 @@ function createTogetherWsServer(config, options = {}) {
           const room = store.createRoom(payload, session.user)
           store.joinRoom(room.id, session.user, session.id, payload.password)
           session.currentRoomId = room.id
+          await persistRoom(previousRoom)
+          await persistRoom(room)
           send(session.ws, {
             type: 'room.created',
             requestId: requestId || null,
@@ -208,6 +216,7 @@ function createTogetherWsServer(config, options = {}) {
             payload.password,
           )
           session.currentRoomId = room.id
+          await persistRoom(previousRoom)
           send(session.ws, {
             type: 'room.joined',
             requestId: requestId || null,
@@ -224,6 +233,7 @@ function createTogetherWsServer(config, options = {}) {
 
         case 'room.leave': {
           const room = leaveCurrentRoom(session)
+          await persistRoom(room)
           send(session.ws, {
             type: 'room.left',
             requestId: requestId || null,
@@ -238,6 +248,7 @@ function createTogetherWsServer(config, options = {}) {
         case 'room.delete': {
           const roomId = payload.roomId || session.currentRoomId
           const room = store.deleteRoom(roomId, session.user)
+          await store.deletePersistedRoom(room.id)
           sessions.forEach((candidate) => {
             if (candidate.currentRoomId === room.id) {
               candidate.currentRoomId = null
@@ -256,6 +267,7 @@ function createTogetherWsServer(config, options = {}) {
         case 'queue.add': {
           const roomId = requireJoinedRoom(session, payload)
           const room = store.addSong(roomId, payload.song || payload.songId)
+          await persistRoom(room)
           send(session.ws, {
             type: 'queue.added',
             requestId: requestId || null,
@@ -270,6 +282,7 @@ function createTogetherWsServer(config, options = {}) {
         case 'queue.playNext': {
           const roomId = requireJoinedRoom(session, payload)
           const room = store.playNext(roomId, session.user, payload)
+          await persistRoom(room)
           send(session.ws, {
             type: 'queue.playNext.updated',
             requestId: requestId || null,
@@ -284,6 +297,7 @@ function createTogetherWsServer(config, options = {}) {
         case 'queue.remove': {
           const roomId = requireJoinedRoom(session, payload)
           const room = store.removeSong(roomId, session.user, payload.songId)
+          await persistRoom(room)
           send(session.ws, {
             type: 'queue.removed',
             requestId: requestId || null,
@@ -298,6 +312,7 @@ function createTogetherWsServer(config, options = {}) {
         case 'playback.set': {
           const roomId = requireJoinedRoom(session, payload)
           const room = store.setPlayback(roomId, session.user, payload)
+          await persistRoom(room)
           send(session.ws, {
             type: 'playback.updated',
             requestId: requestId || null,
@@ -367,6 +382,9 @@ function createTogetherWsServer(config, options = {}) {
     ws.on('close', () => {
       const room = leaveCurrentRoom(session)
       sessions.delete(session.id)
+      store.persistRoom(room).catch((error) => {
+        console.error(error)
+      })
       broadcastAll(room)
     })
   })

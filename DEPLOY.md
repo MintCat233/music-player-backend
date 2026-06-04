@@ -44,7 +44,7 @@ ghcr.io/mintcat233/api-enhanced
 | `API_AUTH_JWT_SECRET` | Secret | JWT 强随机密钥，两个服务共用 |
 | `SUPABASE_URL` | Secret | Supabase Project URL |
 | `SUPABASE_PUBLISHABLE_KEY` | Secret | Supabase publishable key，形如 `sb_publishable_...` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Secret | Supabase service role key，只给 custom-backend 使用 |
+| `SUPABASE_SERVICE_ROLE_KEY` | Secret | Supabase service role key，只给 custom-backend 和 together-ws 服务端使用 |
 
 可选 Secret：
 
@@ -114,6 +114,12 @@ SUPABASE_SERVICE_ROLE_KEY=service_role_xxx
 ```bash
 docker build -t ghcr.io/mintcat233/api-enhanced:latest .
 docker compose up -d
+```
+
+一起听房间会持久化到 Supabase。首次部署或数据库为空时，先执行迁移：
+
+```bash
+supabase db push
 ```
 
 测试业务后端：
