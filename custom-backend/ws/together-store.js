@@ -409,6 +409,7 @@ class TogetherRoomStore {
     const isPlaybackHost = this.isPlaybackHost(room, user)
     const isParticipant = room.participants.has(user.id)
     const isControlCommand = patch.controlCommand === true
+    let currentSongChanged = false
     if (!isOwner && !isPlaybackHost && !(isParticipant && isControlCommand)) {
       const error = new Error('无权限同步播放状态')
       error.status = 403
@@ -430,7 +431,7 @@ class TogetherRoomStore {
     }
 
     if (patch.currentSongId !== undefined) {
-      if (!isOwner && !isControlCommand) {
+      if (!isControlCommand) {
         const reportedSongId = normalizeText(patch.currentSongId)
         if (reportedSongId !== room.playback.currentSongId) {
           room.playback.updatedAt = Date.now()
@@ -445,12 +446,19 @@ class TogetherRoomStore {
         error.status = 400
         throw error
       }
+      currentSongChanged = songId !== room.playback.currentSongId
       room.playback.currentSongId = songId || null
       const song = room.playlist.find((item) => item.id === songId)
-      room.playback.durationMs = song?.duration || room.playback.durationMs || 0
+      if (currentSongChanged) {
+        const requestedDuration = Math.max(0, Number(patch.durationMs) || 0)
+        room.playback.positionMs = 0
+        room.playback.durationMs = song?.duration || requestedDuration || 0
+      } else if (song?.duration && room.playback.durationMs <= 0) {
+        room.playback.durationMs = song.duration
+      }
     }
 
-    if (patch.durationMs !== undefined) {
+    if (patch.durationMs !== undefined && !currentSongChanged) {
       room.playback.durationMs = Math.max(0, Number(patch.durationMs) || 0)
     }
 
@@ -458,7 +466,7 @@ class TogetherRoomStore {
       room.playback.isPlaying = Boolean(patch.isPlaying)
     }
 
-    if (patch.positionMs !== undefined) {
+    if (patch.positionMs !== undefined && !currentSongChanged) {
       room.playback.positionMs = Math.max(0, Number(patch.positionMs) || 0)
     }
 
