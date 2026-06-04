@@ -335,7 +335,7 @@ class TogetherRoomStore {
 
   playNext(roomId, user, { songId, song }) {
     const room = this.requireRoom(roomId)
-    this.requireOwner(room, user)
+    this.requireParticipant(room, user)
 
     const normalizedSongId = normalizeText(songId || song?.id)
     let targetIndex = room.playlist.findIndex(
@@ -416,13 +416,10 @@ class TogetherRoomStore {
     }
     this.advancePlayback(room)
 
-    if (isControlCommand && !isOwner) {
-      const reportedSongId = normalizeText(patch.currentSongId)
-      if (!reportedSongId || reportedSongId !== room.playback.currentSongId) {
-        room.playback.updatedAt = Date.now()
-        room.updatedAt = Date.now()
-        return room
-      }
+    if (isControlCommand && !isOwner && patch.currentSongId === undefined) {
+      room.playback.updatedAt = Date.now()
+      room.updatedAt = Date.now()
+      return room
     }
 
     if (!isOwner && !isControlCommand && patch.isPlaying !== undefined) {
@@ -433,7 +430,7 @@ class TogetherRoomStore {
     }
 
     if (patch.currentSongId !== undefined) {
-      if (!isOwner) {
+      if (!isOwner && !isControlCommand) {
         const reportedSongId = normalizeText(patch.currentSongId)
         if (reportedSongId !== room.playback.currentSongId) {
           room.playback.updatedAt = Date.now()
@@ -610,6 +607,14 @@ class TogetherRoomStore {
   requireOwner(room, user) {
     if (room.owner.id !== user.id) {
       const error = new Error('只有房主可以执行该操作')
+      error.status = 403
+      throw error
+    }
+  }
+
+  requireParticipant(room, user) {
+    if (!room.participants.has(user.id)) {
+      const error = new Error('请先加入房间')
       error.status = 403
       throw error
     }
