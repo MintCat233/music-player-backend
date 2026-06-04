@@ -407,14 +407,25 @@ class TogetherRoomStore {
     const room = this.requireRoom(roomId)
     const isOwner = room.owner.id === user.id
     const isPlaybackHost = this.isPlaybackHost(room, user)
-    if (!isOwner && !isPlaybackHost) {
+    const isParticipant = room.participants.has(user.id)
+    const isControlCommand = patch.controlCommand === true
+    if (!isOwner && !isPlaybackHost && !(isParticipant && isControlCommand)) {
       const error = new Error('无权限同步播放状态')
       error.status = 403
       throw error
     }
     this.advancePlayback(room)
 
-    if (!isOwner && patch.isPlaying !== undefined) {
+    if (isControlCommand && !isOwner) {
+      const reportedSongId = normalizeText(patch.currentSongId)
+      if (!reportedSongId || reportedSongId !== room.playback.currentSongId) {
+        room.playback.updatedAt = Date.now()
+        room.updatedAt = Date.now()
+        return room
+      }
+    }
+
+    if (!isOwner && !isControlCommand && patch.isPlaying !== undefined) {
       const reportedIsPlaying = Boolean(patch.isPlaying)
       if (reportedIsPlaying !== room.playback.isPlaying) {
         return room
@@ -446,7 +457,7 @@ class TogetherRoomStore {
       room.playback.durationMs = Math.max(0, Number(patch.durationMs) || 0)
     }
 
-    if (isOwner && patch.isPlaying !== undefined) {
+    if ((isOwner || isControlCommand) && patch.isPlaying !== undefined) {
       room.playback.isPlaying = Boolean(patch.isPlaying)
     }
 
