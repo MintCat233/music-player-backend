@@ -1,17 +1,19 @@
 # Deploy
 
-这个项目现在用 Docker Compose 部署两个服务：
+这个项目现在用 Docker Compose 部署三个服务：
 
 | 服务 | 容器内端口 | 服务器端口 | 说明 |
 | --- | ---: | ---: | --- |
 | `ncm-api` | `3000` | `3500` | 原网易云音乐 API，已加 JWT 鉴权 |
 | `custom-backend` | `4000` | `3510` | 你自己的后端，负责登录和签发 JWT |
+| `together-ws` | `4100` | `3520` | 一起听 WebSocket 服务 |
 
 部署后访问：
 
 ```text
 音乐 API:      http://服务器IP:3500
 你的业务后端:  http://服务器IP:3510
+一起听 WS:     ws://服务器IP:3520
 ```
 
 ## GitHub Actions 部署
@@ -87,6 +89,7 @@ docker compose
 ```text
 3500
 3510
+3520
 ```
 
 ## 本地容器测试
